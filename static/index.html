@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="tr" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WeatherNext Karar Destek Merkezi | 81 İl & 972 İlçe</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#f0f9ff', 500: '#0284c7', 600: '#0369a1', 700: '#075985' }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(30, 41, 59, 0.72); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .glass-active { background: rgba(14, 165, 233, 0.18); border-color: rgba(56, 189, 248, 0.45); }
+
+    /* Modern Web Guidance: responsive-table pattern */
+    .table-wrapper {
+      overflow: auto;
+      max-inline-size: 100%;
+      max-block-size: min(560px, 78vh);
+      container-type: inline-size;
+      border-radius: 0.75rem;
+    }
+
+    .responsive-data-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .responsive-data-table thead {
+      position: sticky;
+      inset-block-start: 0;
+      z-index: 2;
+      background: #0f172a;
+    }
+
+    .responsive-data-table tbody th {
+      position: sticky;
+      inset-inline-start: 0;
+      z-index: 1;
+      background: #0f172a;
+    }
+
+    @container (width < 600px) {
+      .responsive-data-table,
+      .responsive-data-table thead,
+      .responsive-data-table tbody,
+      .responsive-data-table tr,
+      .responsive-data-table th,
+      .responsive-data-table td {
+        display: block;
+      }
+
+      .responsive-data-table thead {
+        display: none;
+      }
+
+      .responsive-data-table tr {
+        margin-block-end: 1rem;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 0.75rem;
+        padding: 0.5rem;
+        background: rgba(15, 23, 42, 0.65);
+      }
+
+      .responsive-data-table tbody th {
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 2;
+        background: #1e293b;
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        margin-block-end: 0.25rem;
+      }
+
+      .responsive-data-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.4rem 0.75rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      }
+
+      .responsive-data-table td:nth-child(2)::before { content: var(--label-2) ": "; font-weight: 600; color: #94a3b8; }
+      .responsive-data-table td:nth-child(3)::before { content: var(--label-3) ": "; font-weight: 600; color: #94a3b8; }
+      .responsive-data-table td:nth-child(4)::before { content: var(--label-4) ": "; font-weight: 600; color: #94a3b8; }
+      .responsive-data-table td:nth-child(5)::before { content: var(--label-5) ": "; font-weight: 600; color: #94a3b8; }
+      .responsive-data-table td:nth-child(6)::before { content: var(--label-6) ": "; font-weight: 600; color: #94a3b8; }
+      .responsive-data-table td:nth-child(7)::before { content: var(--label-7) ": "; font-weight: 600; color: #94a3b8; }
+      .responsive-data-table td:nth-child(8)::before { content: var(--label-8) ": "; font-weight: 600; color: #94a3b8; }
+    }
+  </style>
+</head>
+<body class="min-h-full flex flex-col antialiased selection:bg-sky-500 selection:text-white">
+
+  <!-- Top Navbar -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <!-- Brand -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/20 shrink-0">
+            <i data-lucide="cloud-lightning" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="text-lg font-bold tracking-tight text-white">WeatherNext</h1>
+              <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">81 İl • 972 İlçe Aktif</span>
+            </div>
+            <p class="text-xs text-slate-400">Google DeepMind AI Tahmin Motoru & Operasyonel Karar Destek Sistemi</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 81 Province + 972 District Selectors & Quick Search -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <!-- Quick Search across 972 districts -->
+        <div class="relative flex-1 sm:flex-initial sm:w-56">
+          <input
+            type="search"
+            id="quickLocationSearch"
+            list="allLocationsDatalist"
+            placeholder="İl veya ilçe ara (örn: Gebze, Çorlu)..."
+            onchange="handleQuickSearch(this.value)"
+            class="w-full bg-slate-800/90 border border-slate-700 text-slate-200 text-xs rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none placeholder:text-slate-500"
+          >
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none"></i>
+          <datalist id="allLocationsDatalist"></datalist>
+        </div>
+
+        <!-- Province Select (81 İl) -->
+        <div class="relative flex-1 sm:flex-initial">
+          <label for="provinceSelect" class="sr-only">İl Seçin</label>
+          <select id="provinceSelect" onchange="onProvinceChange(this.value)" class="w-full appearance-none bg-slate-800 border border-slate-700 text-slate-200 text-xs sm:text-sm rounded-lg pl-8 pr-7 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer font-medium">
+            <option value="İstanbul">34 - İstanbul</option>
+          </select>
+          <i data-lucide="map" class="w-3.5 h-3.5 text-sky-400 absolute left-2.5 top-2.5 pointer-events-none"></i>
+          <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2.5 pointer-events-none"></i>
+        </div>
+
+        <!-- District Select (İlçeler) -->
+        <div class="relative flex-1 sm:flex-initial">
+          <label for="districtSelect" class="sr-only">İlçe Seçin</label>
+          <select id="districtSelect" onchange="onDistrictChange(this.value)" class="w-full appearance-none bg-slate-800 border border-slate-700 text-slate-200 text-xs sm:text-sm rounded-lg pl-8 pr-7 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer font-medium">
+            <option value="__MERKEZ__">İl Merkezi (Genel)</option>
+          </select>
+          <i data-lucide="map-pin" class="w-3.5 h-3.5 text-emerald-400 absolute left-2.5 top-2.5 pointer-events-none"></i>
+          <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2.5 pointer-events-none"></i>
+        </div>
+
+        <button onclick="refreshData()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="Verileri Yenile">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Hero Status Bar -->
+    <div id="heroStatusBar" class="glass rounded-2xl p-5 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-l-4 border-l-sky-500">
+      <div class="flex items-center gap-4">
+        <div id="currentWeatherIcon" class="w-14 h-14 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-400 text-2xl font-bold shrink-0">
+          <i data-lucide="sun" class="w-8 h-8"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span id="activeLocationBadge" class="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30">
+              İstanbul / İl Merkezi
+            </span>
+            <span id="activeCoordsBadge" class="text-[11px] font-mono text-slate-400">41.0082, 28.9784</span>
+          </div>
+          <div class="flex items-baseline gap-3">
+            <span id="currentTemp" class="text-4xl font-extrabold text-white tracking-tight">--°C</span>
+            <span id="currentFeels" class="text-sm font-medium text-slate-400">Hissedilen: --°C</span>
+          </div>
+          <p id="currentSummary" class="text-xs text-slate-300 font-medium mt-0.5">Seçili il/ilçe için meteorolojik analiz aktif.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div class="bg-slate-900/60 rounded-xl p-2.5 border border-slate-800">
+          <span class="text-xs text-slate-400 block flex items-center gap-1"><i data-lucide="wind" class="w-3 h-3 text-sky-400"></i> Rüzgar / Hamle</span>
+          <span id="currentWind" class="font-semibold text-slate-200 text-xs sm:text-sm">-- km/s</span>
+        </div>
+        <div class="bg-slate-900/60 rounded-xl p-2.5 border border-slate-800">
+          <span class="text-xs text-slate-400 block flex items-center gap-1"><i data-lucide="droplets" class="w-3 h-3 text-sky-400"></i> Bağıl Nem</span>
+          <span id="currentHumidity" class="font-semibold text-slate-200 text-xs sm:text-sm">%--</span>
+        </div>
+        <div class="bg-slate-900/60 rounded-xl p-2.5 border border-slate-800">
+          <span class="text-xs text-slate-400 block flex items-center gap-1"><i data-lucide="cloud-rain" class="w-3 h-3 text-sky-400"></i> Yağış İhtimali</span>
+          <span id="currentPrecip" class="font-semibold text-slate-200 text-xs sm:text-sm">%--</span>
+        </div>
+        <div class="bg-slate-900/60 rounded-xl p-2.5 border border-slate-800">
+          <span class="text-xs text-slate-400 block flex items-center gap-1"><i data-lucide="shield-check" class="w-3 h-3 text-emerald-400"></i> Saha Durumu</span>
+          <span id="currentRiskLevel" class="font-semibold text-emerald-400 text-xs sm:text-sm">Normal</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex items-center gap-2 border-b border-slate-800 overflow-x-auto pb-2">
+      <button onclick="switchTab('concrete')" id="tab-btn-concrete" class="px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm flex items-center gap-2 transition glass-active text-sky-400 whitespace-nowrap">
+        <i data-lucide="hard-hat" class="w-4 h-4"></i> Beton Dökümü & Şantiye
+      </button>
+      <button onclick="switchTab('districts')" id="tab-btn-districts" class="px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm flex items-center gap-2 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 whitespace-nowrap">
+        <i data-lucide="layout-grid" class="w-4 h-4"></i> Tüm İlçeler Karşılaştırması (<span id="districtCountTabBadge">--</span> İlçe)
+      </button>
+      <button onclick="switchTab('transport')" id="tab-btn-transport" class="px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm flex items-center gap-2 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 whitespace-nowrap">
+        <i data-lucide="truck" class="w-4 h-4"></i> Ulaşım, Yol & Lojistik
+      </button>
+      <button onclick="switchTab('daily')" id="tab-btn-daily" class="px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm flex items-center gap-2 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 whitespace-nowrap">
+        <i data-lucide="coffee" class="w-4 h-4"></i> Günlük Asistan & Yaşam
+      </button>
+      <button onclick="switchTab('weathernext')" id="tab-btn-weathernext" class="px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm flex items-center gap-2 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 whitespace-nowrap">
+        <i data-lucide="database" class="w-4 h-4"></i> WeatherNext Cloud Bağlantısı
+      </button>
+    </div>
+
+    <!-- TAB 1: BETON DÖKÜMÜ & ŞANTİYE -->
+    <section id="tab-concrete" class="space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- Score Card -->
+        <div class="glass rounded-2xl p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase font-bold tracking-wider text-slate-400">24 Saatlik Döküm Skoru</span>
+            <span id="concreteBadge" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">İdeal</span>
+          </div>
+          <div class="my-4">
+            <div class="text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
+              <span id="concreteScore">--</span>
+              <span class="text-sm font-normal text-slate-400">/ 100</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2.5 mt-3 overflow-hidden">
+              <div id="concreteScoreBar" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-700" style="width: 85%"></div>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400">TS EN 206 & ACI 305R/306R standartlarına göre ilçe koordinatı analizi.</p>
+        </div>
+
+        <!-- Evaporation & Shrinkage Card -->
+        <div class="glass rounded-2xl p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs uppercase font-bold tracking-wider text-slate-400">Plastik Rötre Çatlağı Riski</span>
+              <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <div class="mt-3">
+              <span id="evaporationRateValue" class="text-3xl font-extrabold text-white">--</span>
+              <span class="text-xs text-slate-400"> kg/m²/saat (Buharlaşma)</span>
+            </div>
+            <p id="evaporationAssessment" class="text-xs text-slate-300 mt-2 leading-relaxed">
+              Buharlaşma hızı nominal sınırın altındadır.
+            </p>
+          </div>
+          <div class="text-[11px] text-slate-500 border-t border-slate-800 pt-2 mt-3">
+            Eşik: &gt;1.0 kg/m²/saat durumunda şiddetli yüzey çatlakları oluşur.
+          </div>
+        </div>
+
+        <!-- Optimal Pouring Window -->
+        <div class="glass rounded-2xl p-5 border-l-4 border-l-emerald-500 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs uppercase font-bold tracking-wider text-slate-400">Önerilen Döküm Pencereleri</span>
+              <i data-lucide="clock" class="w-4 h-4 text-emerald-400"></i>
+            </div>
+            <div id="optimalWindowsList" class="mt-3 space-y-2 text-xs max-h-36 overflow-y-auto pr-1">
+              <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-medium">
+                Pencereler taranıyor...
+              </div>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-2">Kesintisiz en az 3 saat uygun döküm şartı sağlayan zaman dilimleri.</p>
+        </div>
+      </div>
+
+      <!-- Critical Warnings Box -->
+      <div id="concreteAlertsBox" class="rounded-2xl p-5 border hidden space-y-2"></div>
+
+      <!-- Hourly Concrete Table (Responsive Table Pattern) -->
+      <div class="glass rounded-2xl p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <h3 id="concrete-table-caption" class="text-base font-semibold text-white flex items-center gap-2">
+            <i data-lucide="calendar" class="w-5 h-5 text-sky-400"></i>
+            Saatlik Beton Döküm Uygunluk Matrisi (Önümüzdeki 24 Saat)
+          </h3>
+          <span class="text-xs text-slate-400">Mobilde kart görünümüne, masaüstünde sabit başlıklı tabloya dönüşür</span>
+        </div>
+        <div tabindex="0" role="region" aria-labelledby="concrete-table-caption" class="table-wrapper">
+          <table class="responsive-data-table text-left text-xs" style="--label-2: 'Sıcaklık'; --label-3: 'Nem'; --label-4: 'Rüzgar'; --label-5: 'Yağış'; --label-6: 'Buharlaşma'; --label-7: 'Durum'; --label-8: 'Öneri';">
+            <thead class="text-slate-400 border-b border-slate-800 uppercase text-[10px] tracking-wider">
+              <tr>
+                <th class="py-3 px-3">Saat</th>
+                <th class="py-3 px-3">Sıcaklık</th>
+                <th class="py-3 px-3">Nem</th>
+                <th class="py-3 px-3">Rüzgar</th>
+                <th class="py-3 px-3">Yağış</th>
+                <th class="py-3 px-3">Buharlaşma</th>
+                <th class="py-3 px-3">Durum</th>
+                <th class="py-3 px-3">Mühendislik Aksiyonu</th>
+              </tr>
+            </thead>
+            <tbody id="concreteTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+              <tr><td colspan="8" class="text-center py-6 text-slate-500">Yükleniyor...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: TÜM İLÇELER KARŞILAŞTIRMASI (İL GENELİ DETAYLI ANALİZ) -->
+    <section id="tab-districts" class="space-y-6 hidden">
+      <div class="glass rounded-2xl p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 id="districts-table-caption" class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="map-pinned" class="w-5 h-5 text-emerald-400"></i>
+              <span id="districtsProvinceTitle">İstanbul</span> — Tüm İlçeler Anlık Şantiye & Ulaşım Matrisi
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Herhangi bir ilçenin satırına tıklayarak o ilçenin 36 saatlik detaylı beton döküm ve ulaşım analizine geçebilirsiniz.
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input
+              type="search"
+              id="districtTableFilter"
+              oninput="filterDistrictTable(this.value)"
+              placeholder="Tabloda ilçe filtrele..."
+              class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            >
+          </div>
+        </div>
+
+        <div tabindex="0" role="region" aria-labelledby="districts-table-caption" class="table-wrapper">
+          <table class="responsive-data-table text-left text-xs" style="--label-2: 'Koordinat'; --label-3: 'Sıcaklık'; --label-4: 'Nem'; --label-5: 'Rüzgar/Hamle'; --label-6: 'Yağış'; --label-7: 'Beton Döküm'; --label-8: 'Ulaşım Güvenliği';">
+            <thead class="text-slate-400 border-b border-slate-800 uppercase text-[10px] tracking-wider">
+              <tr>
+                <th class="py-3 px-3">İlçe Adı</th>
+                <th class="py-3 px-3">Koordinat</th>
+                <th class="py-3 px-3">Sıcaklık</th>
+                <th class="py-3 px-3">Nem</th>
+                <th class="py-3 px-3">Rüzgar (Hamle)</th>
+                <th class="py-3 px-3">Anlık Yağış</th>
+                <th class="py-3 px-3">Beton Döküm Uygunluğu</th>
+                <th class="py-3 px-3">Ulaşım & Yol Durumu</th>
+              </tr>
+            </thead>
+            <tbody id="districtsComparisonBody" class="divide-y divide-slate-800/60 text-slate-300">
+              <tr><td colspan="8" class="text-center py-6 text-slate-500">İlçeler yükleniyor...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: ULAŞIM & LOJİSTİK -->
+    <section id="tab-transport" class="space-y-6 hidden">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div class="glass rounded-2xl p-5">
+          <span class="text-xs uppercase font-bold tracking-wider text-slate-400 block mb-2">Karayolu Sürüş Puanı</span>
+          <div class="text-4xl font-extrabold text-white flex items-baseline gap-1">
+            <span id="transportSafetyScore">--</span>
+            <span class="text-sm font-normal text-slate-400">/ 100</span>
+          </div>
+          <p id="transportSummaryBadge" class="text-xs text-slate-400 mt-2">Hesaplanıyor...</p>
+        </div>
+
+        <div class="glass rounded-2xl p-5 border-l-4 border-l-blue-400">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs uppercase font-bold tracking-wider text-slate-400">Gizli Buzlanma</span>
+            <i data-lucide="snowflake" class="w-4 h-4 text-blue-400"></i>
+          </div>
+          <div id="blackIceIndicator" class="text-sm font-bold text-slate-200">Kontrol Ediliyor</div>
+          <p class="text-xs text-slate-400 mt-1">Köprü ve viyadüklerde ani sürtünme kaybı.</p>
+        </div>
+
+        <div class="glass rounded-2xl p-5 border-l-4 border-l-amber-500">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs uppercase font-bold tracking-wider text-slate-400">Yan Rüzgar & Fırtına</span>
+            <i data-lucide="wind" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <div id="crosswindIndicator" class="text-sm font-bold text-slate-200">Kontrol Ediliyor</div>
+          <p class="text-xs text-slate-400 mt-1">Kamyon, TIR ve yüksek araçlar için devrilme riski.</p>
+        </div>
+
+        <div class="glass rounded-2xl p-5 border-l-4 border-l-teal-500">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs uppercase font-bold tracking-wider text-slate-400">Sis & Su Birikintisi</span>
+            <i data-lucide="eye" class="w-4 h-4 text-teal-400"></i>
+          </div>
+          <div id="visibilityIndicator" class="text-sm font-bold text-slate-200">Kontrol Ediliyor</div>
+          <p class="text-xs text-slate-400 mt-1">Görüş mesafesi ve suda kızaklama.</p>
+        </div>
+      </div>
+
+      <div id="transportAlertsBox" class="glass rounded-2xl p-5 space-y-3">
+        <h4 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i>
+          Kritik Seyir Periyotları & Sürüş Tedbirleri
+        </h4>
+        <div id="transportAlertsList" class="space-y-2 text-xs text-slate-300">
+          Yükleniyor...
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: GÜNLÜK ASİSTAN & YAŞAM -->
+    <section id="tab-daily" class="space-y-6 hidden">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="glass rounded-2xl p-5 border-t-4 border-t-indigo-500">
+          <div class="flex items-center gap-2 text-indigo-400 mb-3">
+            <i data-lucide="shirt" class="w-5 h-5"></i>
+            <h4 class="text-sm font-bold uppercase tracking-wider text-white">Giyim & Kıyafet Tavsiyesi</h4>
+          </div>
+          <div class="text-lg font-bold text-slate-100" id="clothingLayer">--</div>
+          <p class="text-xs text-slate-300 mt-2 leading-relaxed" id="clothingAdvice">Yükleniyor...</p>
+        </div>
+
+        <div class="glass rounded-2xl p-5 border-t-4 border-t-sky-500">
+          <div class="flex items-center gap-2 text-sky-400 mb-3">
+            <i data-lucide="umbrella" class="w-5 h-5"></i>
+            <h4 class="text-sm font-bold uppercase tracking-wider text-white">Şemsiye Durumu</h4>
+          </div>
+          <div class="text-lg font-bold text-slate-100" id="umbrellaStatus">--</div>
+          <p class="text-xs text-slate-300 mt-2 leading-relaxed" id="umbrellaText">Yükleniyor...</p>
+        </div>
+
+        <div class="glass rounded-2xl p-5 border-t-4 border-t-emerald-500">
+          <div class="flex items-center gap-2 text-emerald-400 mb-3">
+            <i data-lucide="smile" class="w-5 h-5"></i>
+            <h4 class="text-sm font-bold uppercase tracking-wider text-white">Açık Hava Konforu</h4>
+          </div>
+          <div class="text-lg font-bold text-slate-100 flex items-baseline gap-2">
+            <span id="comfortScore">--</span>
+            <span class="text-xs text-slate-400">/ 100 Konfor Puanı</span>
+          </div>
+          <p class="text-xs text-slate-300 mt-2 leading-relaxed" id="outdoorAdvice">Yükleniyor...</p>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-5">
+        <h4 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+          <i data-lucide="clock-4" class="w-4 h-4 text-sky-400"></i>
+          Günün 4 Zaman Dilimi Seyri
+        </h4>
+        <div id="daypartsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"></div>
+      </div>
+    </section>
+
+    <!-- TAB 5: WEATHERNEXT CLOUD ENTEGRASYONU -->
+    <section id="tab-weathernext" class="space-y-6 hidden">
+      <div class="glass rounded-2xl p-6 border-l-4 border-l-indigo-500">
+        <div class="flex items-start justify-between flex-wrap gap-2">
+          <div>
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="cloud-cog" class="w-6 h-6 text-indigo-400"></i>
+              Google DeepMind WeatherNext Veri Bağlantısı
+            </h3>
+            <p class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+              Seçtiğiniz il ve ilçenin koordinatları için BigQuery Geospatial SQL ve Cloud Storage Zarr sorguları otomatik oluşturulmuştur.
+            </p>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            FGN & AI Ensemble
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+          <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+            <span class="text-xs text-slate-400 block mb-1">BigQuery Tablosu</span>
+            <code class="text-xs text-sky-300 font-mono break-all" id="bqTableEndpoint">weathernext-public.weathernext.operational_forecasts</code>
+          </div>
+          <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+            <span class="text-xs text-slate-400 block mb-1">GCS Zarr Arşivi</span>
+            <code class="text-xs text-sky-300 font-mono break-all" id="gcsBucketEndpoint">gs://weathernext/weathernext_2_0_0/zarr</code>
+          </div>
+          <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+            <span class="text-xs text-slate-400 block mb-1">Earth Engine Asset</span>
+            <code class="text-xs text-sky-300 font-mono break-all">projects/weathernext/assets/forecasts_latest</code>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="terminal" class="w-4 h-4 text-sky-400"></i>
+              Seçili İlçe Koordinatı İçin Hazır BigQuery SQL Sorgusu
+            </span>
+            <button onclick="copySnippet('sqlCode')" class="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i> Kopyala
+            </button>
+          </div>
+          <pre class="bg-slate-950 p-4 rounded-xl text-xs text-emerald-400 font-mono overflow-x-auto border border-slate-800" id="sqlCode">Yükleniyor...</pre>
+        </div>
+
+        <div class="mt-6">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="code" class="w-4 h-4 text-indigo-400"></i>
+              Python ile Cloud Storage'dan Canlı Akış (Streaming Zarr)
+            </span>
+            <button onclick="copySnippet('pythonCode')" class="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i> Kopyala
+            </button>
+          </div>
+          <pre class="bg-slate-950 p-4 rounded-xl text-xs text-sky-300 font-mono overflow-x-auto border border-slate-800" id="pythonCode">Yükleniyor...</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hourly Graph Section -->
+    <div class="glass rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i data-lucide="line-chart" class="w-4 h-4 text-sky-400"></i>
+          36 Saatlik Sıcaklık & Yağış Trend Eğrisi (<span id="chartLocationTitle">İstanbul</span>)
+        </h3>
+        <span class="text-xs text-slate-400">Yapay Zeka Destekli Yüksek Çözünürlük</span>
+      </div>
+      <div class="h-64 w-full">
+        <canvas id="forecastChart"></canvas>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="border-t border-slate-800/80 bg-slate-900/40 py-4 text-center text-xs text-slate-500">
+    Google DeepMind WeatherNext Experimental Weather Forecasting Platform | Türkiye 81 İl & 972 İlçe Tam Kapsamlı Sürüm
+  </footer>
+
+  <script>
+    let allProvinces = [];
+    let currentProvinceObj = null;
+    let currentDistrictObj = null;
+    let forecastChart = null;
+    let cachedDistrictRows = [];
+
+    // --- 1. CLIENT-SIDE ENGINEERING ENGINES (Works both on GitHub Pages & FastAPI) ---
+    function calculateEvaporationRate(airTempC, relHumidityPct, windSpeedKmh) {
+      const concreteTempC = Math.max(airTempC, 20.0);
+      const r = Math.max(0.01, Math.min(1.0, relHumidityPct / 100.0));
+      const tcTerm = Math.pow(Math.max(0.0, concreteTempC + 18.0), 2.5);
+      const taTerm = Math.pow(Math.max(0.0, airTempC + 18.0), 2.5);
+      const v = Math.max(0.0, windSpeedKmh);
+      const e = ((tcTerm - (r * taTerm)) * (v + 4.0)) * 5.0e-6;
+      return Math.max(0.0, Number(e.toFixed(3)));
+    }
+
+    function evaluateConcreteHour(h) {
+      const temp = h.temp ?? 15.0;
+      const humidity = h.humidity ?? 50.0;
+      const windKmh = h.wind_kmh ?? 10.0;
+      const windGustKmh = h.wind_gust_kmh ?? (windKmh * 1.3);
+      const precipMm = h.precip_mm ?? 0.0;
+      const precipProb = h.precip_prob ?? 0;
+
+      const evapRate = calculateEvaporationRate(temp, humidity, windKmh);
+      const risks = [];
+      const recommendations = [];
+      let status = "EXCELLENT";
+      let score = 100;
+
+      if (precipMm > 1.5 || precipProb >= 70) {
+        status = "PROHIBITED";
+        score -= 70;
+        risks.push("Şiddetli Yağış Riski (Taze beton yüzeyinde şerbet akması ve su/çimento oranı bozulması)");
+        recommendations.push("Dökümü erteleyin veya su geçirmez koruyucu branda/çadır hazırlayın.");
+      } else if (precipMm > 0.2 || precipProb >= 40) {
+        if (status !== "PROHIBITED") status = "CAUTION";
+        score -= 35;
+        risks.push("Olası Çisenti/Yağmur (Yüzey kalitesini etkileyebilir)");
+        recommendations.push("Döküm yüzeyini örtmek için hazır naylon/branda bulundurun.");
+      }
+
+      if (temp < 0) {
+        status = "PROHIBITED";
+        score -= 80;
+        risks.push(`Don Tehlikesi (${temp.toFixed(1)}°C): Taze beton donarsa mukavemet %50'ye varan oranda düşer.`);
+        recommendations.push("Döküm yapılmamalıdır. Zorunluysa sıcak karışım, antifriz katkı ve ısıtmalı kür gerekir.");
+      } else if (temp < 5) {
+        if (status !== "PROHIBITED") status = "CAUTION";
+        score -= 40;
+        risks.push(`Düşük Sıcaklık (${temp.toFixed(1)}°C): Çimento hidratasyonu yavaşlar, priz süresi uzar.`);
+        recommendations.push("Priz hızlandırıcı katkı kullanın, kalıpları termal battaniyelerle izole edin.");
+      }
+
+      if (temp >= 35) {
+        if (status !== "PROHIBITED") status = "CAUTION";
+        score -= 45;
+        risks.push(`Aşırı Sıcak (${temp.toFixed(1)}°C): Hızlı priz alma ve soğuk derz riski.`);
+        recommendations.push("Gece veya sabah erken saatleri tercih edin, geciktirici katkı uygulayın.");
+      } else if (temp >= 30) {
+        score -= 20;
+        risks.push(`Yüksek Sıcaklık (${temp.toFixed(1)}°C): Su kaybı hızlanır.`);
+        recommendations.push("Transmikserde bekleme süresini <45 dakikaya indirin.");
+      }
+
+      if (evapRate >= 1.0) {
+        if (status !== "PROHIBITED") status = "CAUTION";
+        score -= 35;
+        risks.push(`Kritik Buharlaşma Hızı (${evapRate.toFixed(2)} kg/m²/saat): Şiddetli plastik rötre çatlağı riski!`);
+        recommendations.push("Dökümden hemen sonra kür membranı uygulayın, rüzgar perdesi kurun veya sisleme yapın.");
+      } else if (evapRate >= 0.5) {
+        score -= 15;
+        risks.push(`Yüksek Buharlaşma (${evapRate.toFixed(2)} kg/m²/saat): Yüzey kuruması hızlı.`);
+        recommendations.push("Beton yüzeyini perdah sonrası hemen ıslak çul veya membran ile örtün.");
+      }
+
+      if (windGustKmh >= 45 || windKmh >= 38) {
+        if (status !== "PROHIBITED") status = "CAUTION";
+        score -= 30;
+        risks.push(`Şiddetli Rüzgar/Hamle (${Math.round(windGustKmh)} km/s): Kule vinç ve beton pompası bom limiti!`);
+        recommendations.push("Vinç ve pompa bomu çalışma limitlerini kontrol edin; yüksekte çalışmayı durdurmayı değerlendirin.");
+      }
+
+      score = Math.max(0, Math.min(100, score));
+      let badgeTr = "İdeal Döküm Şartları";
+      if (score >= 85 && status !== "PROHIBITED" && status !== "CAUTION") {
+        status = "EXCELLENT";
+        badgeTr = "İdeal Döküm Şartları";
+      } else if (score >= 60 && status !== "PROHIBITED") {
+        status = "ACCEPTABLE";
+        badgeTr = "Uygun Şartlar";
+      } else if (status === "CAUTION" || (score >= 35 && status !== "PROHIBITED")) {
+        status = "CAUTION";
+        badgeTr = "Önlem Alınarak Dökülebilir";
+      } else {
+        status = "PROHIBITED";
+        badgeTr = "Döküm Yapılamaz / Riskli";
+      }
+
+      return { status, badge_tr: badgeTr, score, evaporation_rate: evapRate, risks, recommendations };
+    }
+
+    function analyzeConcreteForecast(hourly) {
+      const evaluated = [];
+      const optimalWindows = [];
+      let currentWin = null;
+
+      hourly.forEach(h => {
+        const res = evaluateConcreteHour(h);
+        const item = { ...h, ...res };
+        evaluated.push(item);
+
+        const suitable = res.status === "EXCELLENT" || res.status === "ACCEPTABLE";
+        if (suitable) {
+          if (!currentWin) {
+            currentWin = { start_time: h.time, end_time: h.time, hours_count: 1, avg_score: res.score };
+          } else {
+            currentWin.end_time = h.time;
+            currentWin.hours_count += 1;
+            currentWin.avg_score = (currentWin.avg_score + res.score) / 2;
+          }
+        } else {
+          if (currentWin && currentWin.hours_count >= 3) optimalWindows.push(currentWin);
+          currentWin = null;
+        }
+      });
+      if (currentWin && currentWin.hours_count >= 3) optimalWindows.push(currentWin);
+
+      const first24 = evaluated.slice(0, 24);
+      const avgScore = first24.reduce((acc, x) => acc + x.score, 0) / Math.max(1, first24.length);
+
+      return {
+        summary: { overall_score_24h: Number(avgScore.toFixed(1)) },
+        optimal_windows: optimalWindows,
+        hourly_evaluation: evaluated
+      };
+    }
+
+    function evaluateTransportHour(h) {
+      const temp = h.temp ?? 15.0;
+      const humidity = h.humidity ?? 50.0;
+      const windKmh = h.wind_kmh ?? 10.0;
+      const windGustKmh = h.wind_gust_kmh ?? (windKmh * 1.3);
+      const precipMm = h.precip_mm ?? 0.0;
+      const visibilityKm = h.visibility_km ?? 10.0;
+
+      const risks = [];
+      let score = 100;
+      let alertLevel = "NORMAL";
+
+      if (temp >= -3.0 && temp <= 1.5 && (precipMm > 0.1 || humidity >= 85)) {
+        score -= 50;
+        alertLevel = "HIGH";
+        risks.push(`Gizli Buzlanma Riski (${temp.toFixed(1)}°C): Viyadük ve köprülerde zemin buz tutabilir.`);
+      } else if (temp < -3.0) {
+        score -= 40;
+        alertLevel = "HIGH";
+        risks.push(`Don ve Buzlanma (${temp.toFixed(1)}°C): Karayolu sürtünme katsayısı düşebilir.`);
+      }
+
+      if (windGustKmh >= 70) {
+        score -= 50;
+        alertLevel = "SEVERE";
+        risks.push(`Kritik Yan Rüzgar (${Math.round(windGustKmh)} km/s hamle): Ağır vasıta/dorse devrilme riski!`);
+      } else if (windGustKmh >= 50 || windKmh >= 40) {
+        score -= 25;
+        if (alertLevel === "NORMAL") alertLevel = "MODERATE";
+        risks.push(`Kuvvetli Yan Rüzgar (${Math.round(windGustKmh)} km/s hamle): Direksiyon hakimiyetine dikkat.`);
+      }
+
+      if (precipMm >= 10.0) {
+        score -= 45;
+        alertLevel = "HIGH";
+        risks.push(`Aşırı Sağanak (${precipMm.toFixed(1)} mm/s): Aquaplaning (suda kızaklama) tehlikesi!`);
+      } else if (precipMm >= 3.0) {
+        score -= 20;
+        if (alertLevel === "NORMAL") alertLevel = "MODERATE";
+        risks.push(`Kuvvetli Yağış (${precipMm.toFixed(1)} mm/s): Fren mesafesi uzar.`);
+      }
+
+      if (visibilityKm < 1.0 || (humidity >= 94 && windKmh < 10 && temp < 14)) {
+        score -= 35;
+        if (alertLevel === "NORMAL" || alertLevel === "MODERATE") alertLevel = "HIGH";
+        risks.push("Yoğun Sis ve Düşük Görüş Mesafesi.");
+      }
+
+      score = Math.max(0, Math.min(100, score));
+      const badgeMap = {
+        NORMAL: "Güvenli Sürüş",
+        MODERATE: "Dikkatli Sürüş",
+        HIGH: "Yüksek Yol Riski",
+        SEVERE: "Tehlikeli / Fırtına"
+      };
+      return { alert_level: alertLevel, badge_tr: badgeMap[alertLevel], score, risks };
+    }
+
+    function analyzeTransportForecast(hourly) {
+      const evaluated = hourly.map(h => ({ ...h, ...evaluateTransportHour(h) }));
+      const first24 = evaluated.slice(0, 24);
+      const avgScore = first24.reduce((a, b) => a + b.score, 0) / Math.max(1, first24.length);
+      const criticalPeriods = first24
+        .filter(x => x.alert_level === "HIGH" || x.alert_level === "SEVERE")
+        .slice(0, 6)
+        .map(x => ({ time: x.time, reason: x.risks[0] || "Kritik hava koşulu" }));
+
+      return {
+        summary: {
+          safety_score_24h: Number(avgScore.toFixed(1)),
+          black_ice_risk: first24.some(x => x.risks.join(" ").includes("Buzlanma") || x.risks.join(" ").includes("Don")),
+          storm_crosswind_risk: first24.some(x => x.risks.join(" ").includes("Yan Rüzgar")),
+          fog_risk: first24.some(x => x.risks.join(" ").includes("Sis"))
+        },
+        critical_periods: criticalPeriods,
+        hourly_evaluation: evaluated
+      };
+    }
+
+    function generateDailyBrief(current, hourly) {
+      const feelsLike = current.feels_like ?? current.temp ?? 18.0;
+      const first24 = hourly.slice(0, 24);
+      const precipProbMax = Math.max(...first24.slice(0, 18).map(h => h.precip_prob || 0), 0);
+      const totalPrecip24h = first24.reduce((a, b) => a + (b.precip_mm || 0), 0);
+      const minTemp = Math.min(...first24.map(h => h.temp ?? 15));
+      const maxTemp = Math.max(...first24.map(h => h.temp ?? 20));
+
+      let layerLevel = "Orta";
+      let advice = "";
+      if (feelsLike < 0) {
+        layerLevel = "Çok Kalın / Kışlık";
+        advice = "Ağır kışlık kaban/mont, atkı, eldiven ve termal içlik şart.";
+      } else if (feelsLike < 8) {
+        layerLevel = "Kalın Kışlık";
+        advice = "Sıcak tutan kalın mont, kazak ve rüzgar kesici dış katman önerilir.";
+      } else if (feelsLike < 16) {
+        layerLevel = "Katmanlı (Soğan Zırhı)";
+        advice = "Hafif mont, trençkot veya hırka. Gün içi sıcaklık farkına karşı katmanlı giyinin.";
+      } else if (feelsLike < 23) {
+        layerLevel = "Hafif / Mevsimlik";
+        advice = "Rahat pamuklu gömlek, tişört ve akşam için ince bir ceket/sweatshirt yeterlidir.";
+      } else {
+        layerLevel = "İnce / Yazlık";
+        advice = "Nefes alabilen ince pamuklu/keten kıyafetler ve güneş gözlüğü önerilir.";
+      }
+
+      let umbrellaNeeded = false;
+      let umbrellaText = "Şemsiyeye gerek yok, hava genel olarak kuru.";
+      if (totalPrecip24h > 1.0 || precipProbMax >= 50) {
+        umbrellaNeeded = true;
+        umbrellaText = "Mutlaka yanınıza şemsiye veya su geçirmez yağmurluk alın (Yağış ihtimali yüksek).";
+      } else if (precipProbMax >= 25) {
+        umbrellaText = "Çantanızda küçük bir şemsiye bulundurmakta fayda var (Kısa süreli çisenti ihtimali).";
+      }
+
+      let comfortScore = 100;
+      if (feelsLike < 10 || feelsLike > 28) comfortScore -= Math.abs(feelsLike - 20) * 2.5;
+      if ((current.wind_kmh || 0) > 25) comfortScore -= (current.wind_kmh - 25) * 1.5;
+      if (precipProbMax > 40) comfortScore -= precipProbMax * 0.4;
+      comfortScore = Math.max(10, Math.min(100, Math.round(comfortScore)));
+
+      const outdoorAdvice = comfortScore >= 80
+        ? "Dış mekan sporları, saha ziyareti ve yürüyüş için mükemmel bir gün."
+        : (comfortScore >= 55 ? "Açık hava aktiviteleri uygun; rüzgar ve serinliğe dikkat ederek planlanabilir." : "Hava şartları zorlayıcı; korunaklı alanlar tercih edilmeli.");
+
+      const periods = [
+        { name: "Sabah (08:00 - 12:00)", temp_est: Number((minTemp + (maxTemp - minTemp) * 0.4).toFixed(1)), desc: "Serin ve açık" },
+        { name: "Öğle (12:00 - 17:00)", temp_est: Number(maxTemp.toFixed(1)), desc: "Günün en sıcak saatleri" },
+        { name: "Akşam (17:00 - 21:00)", temp_est: Number((minTemp + (maxTemp - minTemp) * 0.5).toFixed(1)), desc: "Sıcaklık düşüşe geçiyor" },
+        { name: "Gece (21:00 - 05:00)", temp_est: Number(minTemp.toFixed(1)), desc: "Gece en düşük seviye" }
+      ];
+
+      return {
+        clothing: { layer_level: layerLevel, advice },
+        umbrella: { needed: umbrellaNeeded, text: umbrellaText, precip_prob_max: precipProbMax },
+        comfort: { score: comfortScore, outdoor_activity_advice: outdoorAdvice },
+        periods
+      };
+    }
+
+    // --- 2. LOAD 81 PROVINCES & 972 DISTRICTS ---
+    async function initLocations() {
+      const urls = ['./turkey_locations.json', './static/turkey_locations.json', '/api/locations'];
+      for (const u of urls) {
+        try {
+          const r = await fetch(u);
+          if (r.ok) {
+            allProvinces = await r.json();
+            break;
+          }
+        } catch (e) {}
+      }
+
+      const provSelect = document.getElementById('provinceSelect');
+      const datalist = document.getElementById('allLocationsDatalist');
+      provSelect.innerHTML = '';
+      datalist.innerHTML = '';
+
+      allProvinces.forEach(p => {
+        const plateStr = String(p.plate).padStart(2, '0');
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = `${plateStr} - ${p.name} (${p.districts.length} İlçe)`;
+        if (p.name === 'İstanbul') opt.selected = true;
+        provSelect.appendChild(opt);
+
+        // Add province to quick search datalist
+        const dOptProv = document.createElement('option');
+        dOptProv.value = `${p.name} (İl Merkezi)`;
+        datalist.appendChild(dOptProv);
+
+        // Add all districts to quick search datalist
+        p.districts.forEach(d => {
+          const dOpt = document.createElement('option');
+          dOpt.value = `${d.name} (${p.name})`;
+          datalist.appendChild(dOpt);
+        });
+      });
+
+      onProvinceChange('İstanbul');
+    }
+
+    function onProvinceChange(provinceName, targetDistrictName = '__MERKEZ__') {
+      const p = allProvinces.find(x => x.name === provinceName) || allProvinces[0];
+      if (!p) return;
+      currentProvinceObj = p;
+
+      const distSelect = document.getElementById('districtSelect');
+      distSelect.innerHTML = `<option value="__MERKEZ__">${p.name} - İl Merkezi (Genel)</option>`;
+
+      p.districts.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.name;
+        opt.textContent = d.name;
+        if (d.name === targetDistrictName) opt.selected = true;
+        distSelect.appendChild(opt);
+      });
+
+      document.getElementById('districtCountTabBadge').textContent = p.districts.length;
+      document.getElementById('districtsProvinceTitle').textContent = p.name;
+
+      onDistrictChange(targetDistrictName);
+      loadProvinceDistrictsComparison(p);
+    }
+
+    function onDistrictChange(districtName) {
+      if (!currentProvinceObj) return;
+      let lat = currentProvinceObj.lat;
+      let lon = currentProvinceObj.lon;
+      let displayLabel = `${currentProvinceObj.name} / İl Merkezi`;
+
+      if (districtName && districtName !== '__MERKEZ__') {
+        const d = currentProvinceObj.districts.find(x => x.name === districtName);
+        if (d) {
+          currentDistrictObj = d;
+          lat = d.lat;
+          lon = d.lon;
+          displayLabel = `${currentProvinceObj.name} / ${d.name}`;
+        }
+      } else {
+        currentDistrictObj = null;
+      }
+
+      loadLocationForecast(lat, lon, displayLabel);
+    }
+
+    function handleQuickSearch(val) {
+      if (!val || !val.trim()) return;
+      const q = val.trim().toLowerCase();
+
+      // Match "District (Province)" format
+      for (const p of allProvinces) {
+        if (`${p.name} (il merkezi)`.toLowerCase() === q || p.name.toLowerCase() === q) {
+          document.getElementById('provinceSelect').value = p.name;
+          onProvinceChange(p.name, '__MERKEZ__');
+          document.getElementById('quickLocationSearch').value = '';
+          return;
+        }
+        for (const d of p.districts) {
+          const formatted = `${d.name} (${p.name})`.toLowerCase();
+          if (formatted === q || d.name.toLowerCase() === q) {
+            document.getElementById('provinceSelect').value = p.name;
+            onProvinceChange(p.name, d.name);
+            document.getElementById('quickLocationSearch').value = '';
+            return;
+          }
+        }
+      }
+    }
+
+    async function loadLocationForecast(lat, lon, displayLabel) {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,wind_speed_10m,wind_gusts_10m,visibility,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,wind_gusts_10m,weather_code&timezone=auto&forecast_days=5`;
+        const res = await fetch(url);
+        const raw = await res.json();
+
+        const cur = raw.current || {};
+        const currentParsed = {
+          time: cur.time,
+          temp: cur.temperature_2m ?? 15,
+          feels_like: cur.apparent_temperature ?? 15,
+          humidity: cur.relative_humidity_2m ?? 50,
+          wind_kmh: cur.wind_speed_10m ?? 0,
+          wind_gust_kmh: cur.wind_gusts_10m ?? 0,
+          precip_mm: cur.precipitation ?? 0
+        };
+
+        const hRaw = raw.hourly || {};
+        const times = hRaw.time || [];
+        const hourlyParsed = [];
+        for (let i = 0; i < Math.min(72, times.length); i++) {
+          hourlyParsed.push({
+            time: times[i],
+            temp: hRaw.temperature_2m?.[i] ?? 15,
+            feels_like: hRaw.apparent_temperature?.[i] ?? 15,
+            humidity: hRaw.relative_humidity_2m?.[i] ?? 50,
+            precip_prob: hRaw.precipitation_probability?.[i] ?? 0,
+            precip_mm: hRaw.precipitation?.[i] ?? 0,
+            wind_kmh: hRaw.wind_speed_10m?.[i] ?? 0,
+            wind_gust_kmh: hRaw.wind_gusts_10m?.[i] ?? 0,
+            visibility_km: (hRaw.visibility?.[i] ?? 10000) / 1000.0
+          });
+        }
+
+        const payload = {
+          location: { name: displayLabel, latitude: lat, longitude: lon },
+          current: currentParsed,
+          concrete: analyzeConcreteForecast(hourlyParsed),
+          transport: analyzeTransportForecast(hourlyParsed),
+          daily: generateDailyBrief(currentParsed, hourlyParsed),
+          hourly_raw: hourlyParsed.slice(0, 36)
+        };
+
+        renderData(payload);
+        renderWeatherNextSnippets(lat, lon, displayLabel);
+      } catch (err) {
+        console.error("Forecast load error:", err);
+      }
+    }
+
+    async function loadProvinceDistrictsComparison(provinceObj) {
+      const tbody = document.getElementById('districtsComparisonBody');
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400"><strong>${provinceObj.name}</strong> ilinin ${provinceObj.districts.length} ilçesi için canlı veriler çekiliyor...</td></tr>`;
+
+      try {
+        const districts = provinceObj.districts;
+        const lats = districts.map(d => d.lat).join(',');
+        const lons = districts.map(d => d.lon).join(',');
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,wind_gusts_10m,weather_code&timezone=auto`;
+
+        const res = await fetch(url);
+        let data = await res.json();
+        if (!Array.isArray(data)) data = [data];
+
+        cachedDistrictRows = districts.map((d, idx) => {
+          const cur = data[idx]?.current || {};
+          const hourObj = {
+            temp: cur.temperature_2m ?? 15,
+            humidity: cur.relative_humidity_2m ?? 50,
+            wind_kmh: cur.wind_speed_10m ?? 0,
+            wind_gust_kmh: cur.wind_gusts_10m ?? 0,
+            precip_mm: cur.precipitation ?? 0,
+            precip_prob: (cur.precipitation ?? 0) > 0 ? 80 : 10,
+            visibility_km: 10.0
+          };
+          const cEval = evaluateConcreteHour(hourObj);
+          const tEval = evaluateTransportHour(hourObj);
+          return {
+            name: d.name,
+            province: provinceObj.name,
+            lat: d.lat,
+            lon: d.lon,
+            ...hourObj,
+            concrete: cEval,
+            transport: tEval
+          };
+        });
+
+        renderDistrictComparisonTable(cachedDistrictRows);
+      } catch (e) {
+        console.error("District batch error:", e);
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-rose-400">İlçe verileri yüklenirken hata oluştu.</td></tr>`;
+      }
+    }
+
+    function renderDistrictComparisonTable(rows) {
+      const tbody = document.getElementById('districtsComparisonBody');
+      tbody.innerHTML = '';
+
+      rows.forEach(r => {
+        let cBadge = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        if (r.concrete.status === 'PROHIBITED') cBadge = "bg-rose-500/20 text-rose-400 border border-rose-500/30";
+        else if (r.concrete.status === 'CAUTION') cBadge = "bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        else if (r.concrete.status === 'ACCEPTABLE') cBadge = "bg-sky-500/20 text-sky-400 border border-sky-500/30";
+
+        let tBadge = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        if (r.transport.alert_level === 'SEVERE') tBadge = "bg-rose-500/20 text-rose-400 border border-rose-500/30";
+        else if (r.transport.alert_level === 'HIGH') tBadge = "bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        else if (r.transport.alert_level === 'MODERATE') tBadge = "bg-sky-500/20 text-sky-400 border border-sky-500/30";
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-sky-500/10 cursor-pointer transition";
+        tr.onclick = () => {
+          document.getElementById('districtSelect').value = r.name;
+          onDistrictChange(r.name);
+          switchTab('concrete');
+        };
+        tr.innerHTML = `
+          <th scope="row" class="py-2.5 px-3 font-bold text-sky-300 whitespace-nowrap">${r.name}</th>
+          <td class="py-2.5 px-3 font-mono text-[11px] text-slate-400">${r.lat.toFixed(2)}, ${r.lon.toFixed(2)}</td>
+          <td class="py-2.5 px-3 font-semibold text-white">${r.temp.toFixed(1)}°C</td>
+          <td class="py-2.5 px-3">%${r.humidity}</td>
+          <td class="py-2.5 px-3">${Math.round(r.wind_kmh)} km/s (${Math.round(r.wind_gust_kmh)})</td>
+          <td class="py-2.5 px-3">${r.precip_mm.toFixed(1)} mm</td>
+          <td class="py-2.5 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${cBadge}">${r.concrete.score}/100 • ${r.concrete.badge_tr}</span>
+          </td>
+          <td class="py-2.5 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${tBadge}">${r.transport.badge_tr}</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterDistrictTable(query) {
+      const q = (query || '').trim().toLowerCase();
+      if (!q) {
+        renderDistrictComparisonTable(cachedDistrictRows);
+        return;
+      }
+      const filtered = cachedDistrictRows.filter(r => r.name.toLowerCase().includes(q));
+      renderDistrictComparisonTable(filtered);
+    }
+
+    function renderWeatherNextSnippets(lat, lon, label) {
+      const sql = `-- WeatherNext Point Forecast Query for: ${label} (${lat}, ${lon})
+WITH site_point AS (
+  SELECT ST_GEOGPOINT(${lon}, ${lat}) as geom
+)
+SELECT 
+  forecast_reference_time,
+  valid_time,
+  temperature_2m_celsius,
+  relative_humidity_2m_pct,
+  total_precipitation_6h_mm,
+  SQRT(POW(wind_u_component_10m, 2) + POW(wind_v_component_10m, 2)) * 3.6 AS wind_speed_kmh
+FROM \`weathernext-public.weathernext.operational_forecasts\` AS w, site_point
+WHERE ST_DWITHIN(w.geography, site_point.geom, 5000)
+  AND DATE(forecast_reference_time) >= CURRENT_DATE()
+ORDER BY valid_time ASC
+LIMIT 120;`;
+
+      const py = `import xarray as xr
+import fsspec
+
+# Google DeepMind WeatherNext Zarr Stream — Hedef: ${label}
+bucket_path = "gs://weathernext/weathernext_2_0_0/zarr"
+mapper = fsspec.get_mapper(bucket_path, requester_pays=True)
+ds = xr.open_zarr(mapper, consolidated=True)
+
+# İlçe koordinatına en yakın 5km grid hücresini seç
+site_ds = ds.sel(latitude=${lat}, longitude=${lon}, method="nearest")
+temp_c = site_ds["temperature_2m"] - 273.15
+print(temp_c.values)`;
+
+      document.getElementById('sqlCode').textContent = sql;
+      document.getElementById('pythonCode').textContent = py;
+    }
+
+    function switchTab(tabId) {
+      const tabs = ['concrete', 'districts', 'transport', 'daily', 'weathernext'];
+      tabs.forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tabId) {
+          el.classList.remove('hidden');
+          btn.classList.add('glass-active', 'text-sky-400');
+          btn.classList.remove('text-slate-400');
+        } else {
+          el.classList.add('hidden');
+          btn.classList.remove('glass-active', 'text-sky-400');
+          btn.classList.add('text-slate-400');
+        }
+      });
+      lucide.createIcons();
+    }
+
+    function refreshData() {
+      const distVal = document.getElementById('districtSelect').value;
+      onDistrictChange(distVal);
+      if (currentProvinceObj) loadProvinceDistrictsComparison(currentProvinceObj);
+    }
+
+    function renderData(d) {
+      document.getElementById('activeLocationBadge').textContent = d.location.name;
+      document.getElementById('activeCoordsBadge').textContent = `${d.location.latitude.toFixed(4)}°K, ${d.location.longitude.toFixed(4)}°D`;
+      document.getElementById('chartLocationTitle').textContent = d.location.name;
+
+      document.getElementById('currentTemp').textContent = `${Math.round(d.current.temp)}°C`;
+      document.getElementById('currentFeels').textContent = `Hissedilen: ${Math.round(d.current.feels_like)}°C`;
+      document.getElementById('currentWind').textContent = `${Math.round(d.current.wind_kmh)} km/s (Hamle: ${Math.round(d.current.wind_gust_kmh)})`;
+      document.getElementById('currentHumidity').textContent = `%${d.current.humidity}`;
+      document.getElementById('currentPrecip').textContent = `%${d.daily.umbrella.precip_prob_max}`;
+
+      const c = d.concrete;
+      document.getElementById('concreteScore').textContent = Math.round(c.summary.overall_score_24h);
+      const scoreBar = document.getElementById('concreteScoreBar');
+      scoreBar.style.width = `${c.summary.overall_score_24h}%`;
+
+      const badgeEl = document.getElementById('concreteBadge');
+      const riskHero = document.getElementById('currentRiskLevel');
+      if (c.summary.overall_score_24h >= 80) {
+        badgeEl.textContent = "İdeal Döküm";
+        badgeEl.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        scoreBar.className = "bg-emerald-500 h-2.5 rounded-full";
+        riskHero.textContent = "Döküme Uygun";
+        riskHero.className = "font-semibold text-emerald-400 text-xs sm:text-sm";
+      } else if (c.summary.overall_score_24h >= 50) {
+        badgeEl.textContent = "Önlem Alınmalı";
+        badgeEl.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        scoreBar.className = "bg-amber-500 h-2.5 rounded-full";
+        riskHero.textContent = "Tedbirli Operasyon";
+        riskHero.className = "font-semibold text-amber-400 text-xs sm:text-sm";
+      } else {
+        badgeEl.textContent = "Yüksek Risk / Döküm Zor";
+        badgeEl.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30";
+        scoreBar.className = "bg-rose-500 h-2.5 rounded-full";
+        riskHero.textContent = "Yüksek Saha Riski";
+        riskHero.className = "font-semibold text-rose-400 text-xs sm:text-sm";
+      }
+
+      const firstHour = c.hourly_evaluation[0] || {};
+      const evapRate = firstHour.evaporation_rate ?? 0.1;
+      document.getElementById('evaporationRateValue').textContent = evapRate;
+      const evapDesc = document.getElementById('evaporationAssessment');
+      if (evapRate >= 1.0) {
+        evapDesc.textContent = "Kritik seviye! Rüzgar ve kuruluk nedeniyle taze betonda çatlama riski çok yüksektir.";
+        evapDesc.className = "text-xs text-rose-400 mt-2 font-semibold";
+      } else if (evapRate >= 0.5) {
+        evapDesc.textContent = "Dikkat: Buharlaşma hızlı. Perdah sonrası hemen kür veya koruyucu membran örtülmeli.";
+        evapDesc.className = "text-xs text-amber-300 mt-2";
+      } else {
+        evapDesc.textContent = "Buharlaşma hızı güvenli aralıktadır (<0.50 kg/m²/saat).";
+        evapDesc.className = "text-xs text-emerald-300 mt-2";
+      }
+
+      const winList = document.getElementById('optimalWindowsList');
+      winList.innerHTML = '';
+      if (c.optimal_windows.length > 0) {
+        c.optimal_windows.forEach(w => {
+          const startTime = w.start_time.split('T')[1]?.slice(0, 5) || w.start_time;
+          const endTime = w.end_time.split('T')[1]?.slice(0, 5) || w.end_time;
+          const dateStr = w.start_time.split('T')[0];
+          winList.innerHTML += `
+            <div class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 flex items-center justify-between">
+              <span><strong>${dateStr}</strong> (${startTime} - ${endTime})</span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500/20">${w.hours_count} Saat</span>
+            </div>
+          `;
+        });
+      } else {
+        winList.innerHTML = `
+          <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
+            Önümüzdeki 24 saatte kesintisiz 3 saatlik ideal pencere bulunamadı. Tedbirli ve katkılı döküm gereklidir.
+          </div>
+        `;
+      }
+
+      const alertBox = document.getElementById('concreteAlertsBox');
+      const allRisks = [];
+      c.hourly_evaluation.slice(0, 24).forEach(h => {
+        h.risks.forEach(r => { if (!allRisks.includes(r)) allRisks.push(r); });
+      });
+      if (allRisks.length > 0) {
+        alertBox.classList.remove('hidden');
+        alertBox.className = "rounded-2xl p-5 border border-amber-500/30 bg-amber-500/10 space-y-2";
+        alertBox.innerHTML = `
+          <h4 class="text-sm font-bold text-amber-400 flex items-center gap-2">
+            <i data-lucide="alert-circle" class="w-4 h-4"></i> Şantiye & Döküm Kritik Uyarıları (${d.location.name})
+          </h4>
+          <ul class="text-xs text-slate-200 list-disc pl-5 space-y-1">
+            ${allRisks.map(r => `<li>${r}</li>`).join('')}
+          </ul>
+        `;
+      } else {
+        alertBox.classList.add('hidden');
+      }
+
+      const tb = document.getElementById('concreteTableBody');
+      tb.innerHTML = '';
+      c.hourly_evaluation.slice(0, 24).forEach(h => {
+        const timeFormatted = h.time.replace('T', ' ').slice(5, 16);
+        let badgeClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        if (h.status === 'PROHIBITED') badgeClass = "bg-rose-500/20 text-rose-400 border border-rose-500/30";
+        else if (h.status === 'CAUTION') badgeClass = "bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        else if (h.status === 'ACCEPTABLE') badgeClass = "bg-sky-500/20 text-sky-400 border border-sky-500/30";
+
+        const recText = h.recommendations[0] || "Standart kürleme yeterlidir.";
+
+        tb.innerHTML += `
+          <tr class="hover:bg-slate-800/40">
+            <th scope="row" class="py-2.5 px-3 font-semibold text-white whitespace-nowrap">${timeFormatted}</th>
+            <td class="py-2.5 px-3">${h.temp.toFixed(1)}°C</td>
+            <td class="py-2.5 px-3">%${h.humidity}</td>
+            <td class="py-2.5 px-3">${Math.round(h.wind_kmh)} km/s</td>
+            <td class="py-2.5 px-3">%${h.precip_prob} (${h.precip_mm}mm)</td>
+            <td class="py-2.5 px-3">${h.evaporation_rate}</td>
+            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-semibold ${badgeClass}">${h.badge_tr}</span></td>
+            <td class="py-2.5 px-3 text-slate-400 max-w-xs truncate" title="${recText}">${recText}</td>
+          </tr>
+        `;
+      });
+
+      const tr = d.transport;
+      document.getElementById('transportSafetyScore').textContent = Math.round(tr.summary.safety_score_24h);
+      document.getElementById('transportSummaryBadge').textContent = tr.summary.safety_score_24h > 75 ? "Karayolu şartları genelde açık ve elverişli." : "Zorlu hava koşulları bekleniyor.";
+      document.getElementById('blackIceIndicator').textContent = tr.summary.black_ice_risk ? "YÜKSEK RİSK" : "Risk Görünmüyor";
+      document.getElementById('blackIceIndicator').className = tr.summary.black_ice_risk ? "text-sm font-bold text-rose-400" : "text-sm font-bold text-emerald-400";
+
+      document.getElementById('crosswindIndicator').textContent = tr.summary.storm_crosswind_risk ? "Kuvvetli Yan Rüzgar" : "Normal";
+      document.getElementById('crosswindIndicator').className = tr.summary.storm_crosswind_risk ? "text-sm font-bold text-amber-400" : "text-sm font-bold text-emerald-400";
+
+      document.getElementById('visibilityIndicator').textContent = tr.summary.fog_risk ? "Sis / Kısıtlı Görüş" : "Görüş Mesafesi Açık";
+      document.getElementById('visibilityIndicator').className = tr.summary.fog_risk ? "text-sm font-bold text-amber-400" : "text-sm font-bold text-emerald-400";
+
+      const trAlertList = document.getElementById('transportAlertsList');
+      trAlertList.innerHTML = '';
+      if (tr.critical_periods.length > 0) {
+        tr.critical_periods.forEach(p => {
+          trAlertList.innerHTML += `
+            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+              <span class="font-medium text-white">${p.time.replace('T', ' ')}</span>
+              <span class="text-amber-400">${p.reason}</span>
+            </div>
+          `;
+        });
+      } else {
+        trAlertList.innerHTML = `<div class="text-slate-400 p-2">Önümüzdeki 24 saat içinde bu ilçede aşırı karayolu uyarısı bulunmamaktadır.</div>`;
+      }
+
+      const daily = d.daily;
+      document.getElementById('clothingLayer').textContent = daily.clothing.layer_level;
+      document.getElementById('clothingAdvice').textContent = daily.clothing.advice;
+      document.getElementById('umbrellaStatus').textContent = daily.umbrella.needed ? "Şemsiye Gerekli" : "Şemsiye Gerekmez";
+      document.getElementById('umbrellaText').textContent = daily.umbrella.text;
+      document.getElementById('comfortScore').textContent = daily.comfort.score;
+      document.getElementById('outdoorAdvice').textContent = daily.comfort.outdoor_activity_advice;
+
+      const dpGrid = document.getElementById('daypartsGrid');
+      dpGrid.innerHTML = '';
+      daily.periods.forEach(p => {
+        dpGrid.innerHTML += `
+          <div class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+            <span class="text-xs text-slate-400 block">${p.name}</span>
+            <span class="text-xl font-bold text-white mt-1 block">${p.temp_est}°C</span>
+            <span class="text-xs text-sky-400 mt-1 block">${p.desc}</span>
+          </div>
+        `;
+      });
+
+      renderChart(d.hourly_raw);
+      lucide.createIcons();
+    }
+
+    function renderChart(hourlyData) {
+      const labels = hourlyData.map(h => h.time.split('T')[1].slice(0, 5));
+      const temps = hourlyData.map(h => h.temp);
+      const precips = hourlyData.map(h => h.precip_mm);
+
+      const ctx = document.getElementById('forecastChart').getContext('2d');
+      if (forecastChart) forecastChart.destroy();
+
+      forecastChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Sıcaklık (°C)',
+              data: temps,
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56, 189, 248, 0.15)',
+              tension: 0.4,
+              fill: true,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Yağış (mm)',
+              data: precips,
+              borderColor: '#818cf8',
+              backgroundColor: 'rgba(129, 140, 248, 0.5)',
+              type: 'bar',
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 11 } } }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#64748b', maxTicksLimit: 12 },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            },
+            y: {
+              type: 'linear',
+              position: 'left',
+              ticks: { color: '#38bdf8' },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            },
+            y1: {
+              type: 'linear',
+              position: 'right',
+              ticks: { color: '#818cf8' },
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+    }
+
+    function copySnippet(id) {
+      const text = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text);
+    }
+
+    window.onload = () => {
+      lucide.createIcons();
+      initLocations();
+    };
+  </script>
+</body>
+</html>
