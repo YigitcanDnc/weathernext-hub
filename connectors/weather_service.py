@@ -23,9 +23,6 @@ class WeatherService:
         return self.provinces
 
     def find_location(self, province_query: Optional[str] = None, district_query: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Resolves province and optional district from the 81-province / 972-district dataset.
-        """
         if not province_query:
             province_query = "İstanbul"
 
@@ -44,7 +41,6 @@ class WeatherService:
                     break
 
         if not selected_prov:
-            # Check if province_query actually matches a district name directly
             for p in self.provinces:
                 for d in p.get("districts", []):
                     if d["name"].lower() == pq:
@@ -89,18 +85,15 @@ class WeatherService:
         }
 
     def get_forecast(self, lat: float, lon: float, location_name: str = "Konum") -> Dict[str, Any]:
-        """
-        Fetches high-resolution meteorological forecast for lat/lon.
-        """
         url = "https://api.open-meteo.com/v1/forecast"
         params = {
             "latitude": lat,
             "longitude": lon,
-            "hourly": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,wind_speed_10m,wind_gusts_10m,visibility,weather_code",
-            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max",
-            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,wind_gusts_10m,weather_code",
+            "hourly": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,snowfall,wind_speed_10m,wind_gusts_10m,visibility,uv_index,weather_code,is_day",
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max",
+            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_gusts_10m,pressure_msl,weather_code",
             "timezone": "auto",
-            "forecast_days": 5
+            "forecast_days": 7
         }
 
         resp = self.client.get(url, params=params)
@@ -113,54 +106,48 @@ class WeatherService:
             "temp": cur.get("temperature_2m", 15.0),
             "feels_like": cur.get("apparent_temperature", 15.0),
             "humidity": cur.get("relative_humidity_2m", 50),
+            "is_day": cur.get("is_day", 1),
             "wind_kmh": cur.get("wind_speed_10m", 0.0),
             "wind_gust_kmh": cur.get("wind_gusts_10m", 0.0),
             "precip_mm": cur.get("precipitation", 0.0),
+            "pressure_hpa": cur.get("pressure_msl", 1013.0),
             "weather_code": cur.get("weather_code", 0)
         }
 
         hourly_raw = data.get("hourly", {})
         times = hourly_raw.get("time", [])
-        temps = hourly_raw.get("temperature_2m", [])
-        feels = hourly_raw.get("apparent_temperature", [])
-        humids = hourly_raw.get("relative_humidity_2m", [])
-        precip_probs = hourly_raw.get("precipitation_probability", [])
-        precips = hourly_raw.get("precipitation", [])
-        winds = hourly_raw.get("wind_speed_10m", [])
-        gusts = hourly_raw.get("wind_gusts_10m", [])
-        visibilities = hourly_raw.get("visibility", [])
-        wcodes = hourly_raw.get("weather_code", [])
-
         hourly_parsed = []
-        for i in range(min(72, len(times))):
+        for i in range(min(48, len(times))):
             hourly_parsed.append({
                 "time": times[i],
-                "temp": temps[i] if i < len(temps) and temps[i] is not None else 0.0,
-                "feels_like": feels[i] if i < len(feels) and feels[i] is not None else 0.0,
-                "humidity": humids[i] if i < len(humids) and humids[i] is not None else 50,
-                "precip_prob": precip_probs[i] if i < len(precip_probs) and precip_probs[i] is not None else 0,
-                "precip_mm": precips[i] if i < len(precips) and precips[i] is not None else 0.0,
-                "wind_kmh": winds[i] if i < len(winds) and winds[i] is not None else 0.0,
-                "wind_gust_kmh": gusts[i] if i < len(gusts) and gusts[i] is not None else 0.0,
-                "visibility_km": (visibilities[i] / 1000.0) if i < len(visibilities) and visibilities[i] else 10.0,
-                "weather_code": wcodes[i] if i < len(wcodes) and wcodes[i] is not None else 0
+                "temp": hourly_raw.get("temperature_2m", [0])[i],
+                "feels_like": hourly_raw.get("apparent_temperature", [0])[i],
+                "humidity": hourly_raw.get("relative_humidity_2m", [50])[i],
+                "precip_prob": hourly_raw.get("precipitation_probability", [0])[i] or 0,
+                "precip_mm": hourly_raw.get("precipitation", [0])[i] or 0.0,
+                "snow_cm": hourly_raw.get("snowfall", [0])[i] or 0.0,
+                "wind_kmh": hourly_raw.get("wind_speed_10m", [0])[i] or 0.0,
+                "wind_gust_kmh": hourly_raw.get("wind_gusts_10m", [0])[i] or 0.0,
+                "uv_index": hourly_raw.get("uv_index", [0])[i] or 0.0,
+                "weather_code": hourly_raw.get("weather_code", [0])[i] or 0,
+                "is_day": hourly_raw.get("is_day", [1])[i]
             })
 
         daily_raw = data.get("daily", {})
         d_times = daily_raw.get("time", [])
-        d_maxs = daily_raw.get("temperature_2m_max", [])
-        d_mins = daily_raw.get("temperature_2m_min", [])
-        d_precips = daily_raw.get("precipitation_sum", [])
-        d_probs = daily_raw.get("precipitation_probability_max", [])
-
         daily_parsed = []
         for i in range(len(d_times)):
             daily_parsed.append({
                 "date": d_times[i],
-                "temp_max": d_maxs[i] if i < len(d_maxs) else 0,
-                "temp_min": d_mins[i] if i < len(d_mins) else 0,
-                "precip_sum": d_precips[i] if i < len(d_precips) else 0,
-                "precip_prob_max": d_probs[i] if i < len(d_probs) else 0,
+                "weather_code": daily_raw.get("weather_code", [0])[i],
+                "temp_max": daily_raw.get("temperature_2m_max", [0])[i],
+                "temp_min": daily_raw.get("temperature_2m_min", [0])[i],
+                "sunrise": daily_raw.get("sunrise", [""])[i],
+                "sunset": daily_raw.get("sunset", [""])[i],
+                "uv_max": daily_raw.get("uv_index_max", [0])[i],
+                "precip_sum": daily_raw.get("precipitation_sum", [0])[i],
+                "precip_prob_max": daily_raw.get("precipitation_probability_max", [0])[i],
+                "wind_max": daily_raw.get("wind_speed_10m_max", [0])[i]
             })
 
         return {
@@ -176,9 +163,6 @@ class WeatherService:
         }
 
     def get_province_districts_batch(self, province_name: str) -> List[Dict[str, Any]]:
-        """
-        Fetches current weather for all districts of a given province in a single batch call.
-        """
         pq = province_name.strip().lower()
         selected_prov = None
         for p in self.provinces:
@@ -199,7 +183,7 @@ class WeatherService:
         params = {
             "latitude": lats,
             "longitude": lons,
-            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,wind_gusts_10m,weather_code",
+            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,weather_code,is_day",
             "timezone": "auto"
         }
         resp = self.client.get(url, params=params)
@@ -221,8 +205,8 @@ class WeatherService:
                 "feels_like": cur.get("apparent_temperature", 15.0),
                 "humidity": cur.get("relative_humidity_2m", 50),
                 "wind_kmh": cur.get("wind_speed_10m", 0.0),
-                "wind_gust_kmh": cur.get("wind_gusts_10m", 0.0),
                 "precip_mm": cur.get("precipitation", 0.0),
-                "weather_code": cur.get("weather_code", 0)
+                "weather_code": cur.get("weather_code", 0),
+                "is_day": cur.get("is_day", 1)
             })
         return results
