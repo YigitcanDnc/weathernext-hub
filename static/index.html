@@ -249,6 +249,10 @@
               <i id="favToggleIcon" data-lucide="star" class="w-3.5 h-3.5"></i>
               <span id="favToggleText">Favorile</span>
             </button>
+            <span id="wnLiveBadge" class="hidden px-2.5 py-1 rounded-full bg-emerald-400/25 border border-emerald-200/40 backdrop-blur text-[11px] font-bold items-center gap-1">
+              <i data-lucide="sparkles" class="w-3 h-3"></i>
+              <span id="wnLiveBadgeText">Google WeatherNext AI</span>
+            </span>
           </div>
 
           <div class="flex items-center gap-4">
@@ -286,6 +290,23 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- 1B. GOOGLE WEATHERNEXT AI — ÇOKLU SENARYO (P10 - P90) KARTI (Canlı WeatherNext bağlıyken görünür) -->
+    <section id="weathernextCard" class="hidden card rounded-3xl p-5 sm:p-6 space-y-4 border-l-4 border-l-indigo-500">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
+            <i data-lucide="sparkles" class="w-5 h-5 text-indigo-500"></i>
+            Google DeepMind WeatherNext — Senaryo Aralığı
+          </h2>
+          <p id="wnSubtitle" class="text-xs sm:text-sm text-sec mt-0.5">Yapay zeka çoklu senaryo (P10 – Ortalama – P90) tahmin dağılımı</p>
+        </div>
+        <span id="wnModelChip" class="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
+          WeatherNext AI
+        </span>
+      </div>
+      <div id="wnStepsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5"></div>
     </section>
 
     <!-- 2. GÜN İÇİNDE YAĞIŞ BEKLENEN SAATLER (ÖZEL ÖNE ÇIKAN KART) -->
@@ -828,8 +849,83 @@
       showToast('Hava durumu güncellendi');
     }
 
+    // --- WEATHERNEXT CLOUD RUN / BACKEND BRIDGE ---
+    const WEATHERNEXT_CLOUD_RUN_URL = ''; // Cloud Run deploy sonrası URL buraya yazılır
+
+    function getWeatherNextApiBase() {
+      const qs = new URLSearchParams(window.location.search).get('api');
+      if (qs) return qs.replace(/\/$/, '');
+      if (WEATHERNEXT_CLOUD_RUN_URL) return WEATHERNEXT_CLOUD_RUN_URL.replace(/\/$/, '');
+      if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' || window.location.hostname.endsWith('.run.app')) {
+        return window.location.origin;
+      }
+      return '';
+    }
+
+    async function loadWeatherNextOverlay(lat, lon) {
+      const apiBase = getWeatherNextApiBase();
+      const card = document.getElementById('weathernextCard');
+      const badge = document.getElementById('wnLiveBadge');
+      if (!apiBase) {
+        card.classList.add('hidden');
+        badge.classList.add('hidden');
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${apiBase}/api/weathernext/point?lat=${lat}&lon=${lon}&hours=48`);
+        if (!resp.ok) throw new Error('WeatherNext unavailable');
+        const wn = await resp.json();
+        if (!wn || !wn.steps || wn.steps.length === 0) throw new Error('Empty WeatherNext payload');
+
+        badge.classList.remove('hidden');
+        badge.classList.add('inline-flex');
+        const prettyModel = wn.model.includes('3_0') ? 'WeatherNext 3 (0.1°)' : (wn.model.includes('2_0') ? 'WeatherNext 2' : wn.model);
+        document.getElementById('wnLiveBadgeText').textContent = `Google ${prettyModel}`;
+        document.getElementById('wnModelChip').textContent = `${prettyModel} • Canlı`;
+        document.getElementById('wnSubtitle').textContent = wn.has_percentiles
+          ? 'Google DeepMind çoklu senaryo dağılımı: En serin (%10), Ortalama ve En sıcak/yağışlı (%90) olasılık aralığı'
+          : 'Google DeepMind WeatherNext küresel yapay zeka tahmin modeli çıktısı';
+
+        const grid = document.getElementById('wnStepsGrid');
+        grid.innerHTML = '';
+        const nowMs = Date.now();
+        const futureSteps = wn.steps.filter(s => s.timestamp_ms >= nowMs - 3600000).slice(0, 6);
+        const displaySteps = futureSteps.length ? futureSteps : wn.steps.slice(0, 6);
+
+        displaySteps.forEach(s => {
+          const dt = new Date(s.timestamp_ms);
+          const timeLabel = dt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+          const dayLabel = dt.toLocaleDateString('tr-TR', { weekday: 'short' });
+          const tempMean = s.temp_mean != null ? `${Math.round(s.temp_mean)}°` : '--';
+          const rangeText = (s.temp_p10 != null && s.temp_p90 != null)
+            ? `${Math.round(s.temp_p10)}° – ${Math.round(s.temp_p90)}°`
+            : 'Ortalama';
+          const rainText = s.precip_mm_p90 != null && s.precip_mm_p90 > 0.1
+            ? `Yağış: ${s.precip_mm_mean.toFixed(1)}–${s.precip_mm_p90.toFixed(1)} mm`
+            : `Yağış: ${(s.precip_mm_mean ?? 0).toFixed(1)} mm`;
+
+          grid.innerHTML += `
+            <div class="sub-card rounded-2xl p-3 flex flex-col justify-between gap-1">
+              <div class="text-[11px] font-bold text-sec">${dayLabel} ${timeLabel}</div>
+              <div class="text-xl font-extrabold">${tempMean}</div>
+              <div class="text-[11px] font-semibold text-indigo-500">Aralık: ${rangeText}</div>
+              <div class="text-[11px] text-sec">${rainText}</div>
+            </div>
+          `;
+        });
+
+        card.classList.remove('hidden');
+        lucide.createIcons();
+      } catch {
+        card.classList.add('hidden');
+        badge.classList.add('hidden');
+      }
+    }
+
     // --- FETCH FORECAST (OPEN-METEO 7 DAYS + PAST 1 DAY + PRESSURE + DEW POINT + VISIBILITY) ---
     async function loadForecast(lat, lon, displayLabel) {
+      loadWeatherNextOverlay(lat, lon);
       try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,dew_point_2m,pressure_msl,visibility,precipitation_probability,precipitation,rain,snowfall,wind_speed_10m,wind_gusts_10m,uv_index,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_gusts_10m,pressure_msl,weather_code&timezone=auto&past_days=1&forecast_days=7`;
         const resp = await fetch(url);
