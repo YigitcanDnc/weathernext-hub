@@ -120,7 +120,7 @@
       background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
     }
 
-    /* Seamless Color-Matched 3D Isometric Diorama Hero Card */
+    /* True-Transparent Floating 3D Isometric Diorama Hero Card */
     .hero-card {
       --hero-fg: #ffffff;
       --hero-fg-muted: rgba(255, 255, 255, 0.86);
@@ -139,20 +139,6 @@
       --hero-pill-hover: rgba(255, 255, 255, 0.26);
       --hero-text-shadow: 0 2px 10px rgba(15, 23, 42, 0.25);
       color: var(--hero-fg);
-    }
-    .hero-card.hero-ink-dark {
-      --hero-fg: #0f172a;
-      --hero-fg-muted: rgba(15, 23, 42, 0.72);
-      --hero-tile-bg: rgba(255, 255, 255, 0.56);
-      --hero-tile-border: rgba(255, 255, 255, 0.72);
-      --hero-pill-bg: rgba(15, 23, 42, 0.08);
-      --hero-pill-hover: rgba(15, 23, 42, 0.15);
-      --hero-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
-      color: var(--hero-fg);
-    }
-    .hero-ink-dark #favToggleIcon.text-amber-300 {
-      color: #d97706 !important;
-      fill: #f59e0b !important;
     }
     .hero-fg {
       color: var(--hero-fg);
@@ -191,25 +177,26 @@
       background: var(--hero-pill-hover);
     }
 
-    .hero-atmo-wash {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 3;
-      opacity: 0;
-      transition: opacity 0.6s ease, background 0.6s ease;
-    }
-
     .hero-diorama-img {
       opacity: 0;
-      transform: scale(0.97);
-      transition: opacity 0.55s ease, transform 0.75s ease;
-      -webkit-mask-image: radial-gradient(ellipse 92% 92% at 50% 50%, #000 78%, transparent 100%);
-      mask-image: radial-gradient(ellipse 92% 92% at 50% 50%, #000 78%, transparent 100%);
+      transform: scale(0.96);
+      transition: opacity 0.55s ease, filter 0.5s ease, transform 0.75s ease;
     }
     .hero-diorama-img.loaded {
       opacity: 1;
       transform: scale(1);
+    }
+    .hero-diorama-img.island-tint[data-atmo-tint="cloudy"] {
+      filter: brightness(0.94) saturate(0.90);
+    }
+    .hero-diorama-img.island-tint[data-atmo-tint="rainy"] {
+      filter: brightness(0.90) saturate(0.88);
+    }
+    .hero-diorama-img.island-tint[data-atmo-tint="stormy"] {
+      filter: brightness(0.82) contrast(1.06);
+    }
+    .hero-diorama-img.island-tint[data-atmo-tint="night"] {
+      filter: brightness(0.76) saturate(0.84);
     }
 
     .hero-canvas {
@@ -359,10 +346,9 @@
   <!-- Main Content -->
   <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
 
-    <!-- 1. SEAMLESS COLOR-MATCHED HERO CARD: BALANCED 2-COL DESKTOP / VERTICAL MOBILE DIORAMA LAYOUT -->
+    <!-- 1. TRUE-TRANSPARENT FLOATING DIORAMA HERO CARD: BALANCED 2-COL DESKTOP / VERTICAL MOBILE -->
     <section id="heroCard" data-atmosphere="sunny" class="hero-card hero-ink-light rounded-3xl p-5 sm:p-7 shadow-xl">
       <canvas id="heroWeatherCanvas" class="hero-canvas"></canvas>
-      <div id="heroAtmoWash" class="hero-atmo-wash"></div>
 
       <div class="hero-content grid grid-cols-1 md:grid-cols-12 md:items-center gap-5 md:gap-7">
         <!-- Row 1 Left (Desktop) / Top (Mobile): Location + Big Temp -->
@@ -796,39 +782,6 @@
       tick();
     }
 
-    function sampleDioramaBackdrop(imgEl) {
-      try {
-        const size = 32;
-        const c = document.createElement('canvas');
-        c.width = size;
-        c.height = size;
-        const ctx = c.getContext('2d', { willReadFrequently: true });
-        if (!ctx) return null;
-        ctx.drawImage(imgEl, 0, 0, size, size);
-        const avgPatch = (cx, cy) => {
-          const data = ctx.getImageData(cx - 1, cy - 1, 3, 3).data;
-          let r = 0, g = 0, b = 0, count = 0;
-          for (let i = 0; i < data.length; i += 4) {
-            if (data[i + 3] > 20) {
-              r += data[i];
-              g += data[i + 1];
-              b += data[i + 2];
-              count++;
-            }
-          }
-          if (!count) return [180, 198, 218];
-          return [Math.round(r / count), Math.round(g / count), Math.round(b / count)];
-        };
-        const tl = avgPatch(2, 2);
-        const tr = avgPatch(size - 3, 2);
-        const bl = avgPatch(2, size - 3);
-        const br = avgPatch(size - 3, size - 3);
-        return { tl, tr, bl, br };
-      } catch (_) {
-        return null;
-      }
-    }
-
     function setDioramaLayoutActive(active) {
       const headerBlock = document.getElementById('heroHeaderBlock');
       const metricsBlock = document.getElementById('heroMetricsBlock');
@@ -846,99 +799,20 @@
       }
     }
 
-    function resetHeroBackdrop() {
-      const heroCard = document.getElementById('heroCard');
-      const wash = document.getElementById('heroAtmoWash');
-      if (heroCard) {
-        heroCard.style.background = '';
-        heroCard.classList.remove('hero-ink-dark');
-        heroCard.classList.add('hero-ink-light');
-      }
-      if (wash) {
-        wash.style.background = 'none';
-        wash.style.opacity = '0';
-      }
-      setDioramaLayoutActive(false);
-    }
-
-    function applyHeroBackdrop(corners, isLiveAI, atmosphere) {
-      const heroCard = document.getElementById('heroCard');
-      const wash = document.getElementById('heroAtmoWash');
-      if (!heroCard || !corners) {
-        if (heroCard) {
-          heroCard.style.background = '';
-          heroCard.classList.remove('hero-ink-dark');
-          heroCard.classList.add('hero-ink-light');
-        }
-        if (wash) {
-          wash.style.background = 'none';
-          wash.style.opacity = '0';
-        }
-        return;
-      }
-
-      const rgb = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
-      const rgba = ([r, g, b], a) => `rgba(${r}, ${g}, ${b}, ${a})`;
-      heroCard.style.background = `radial-gradient(circle at 78% 28%, ${rgba(corners.tr, 0.92)} 0%, transparent 58%), linear-gradient(135deg, ${rgb(corners.tl)} 0%, ${rgb(corners.bl)} 48%, ${rgb(corners.br)} 100%)`;
-
-      let washDarkening = 0;
-      if (wash) {
-        if (!isLiveAI && atmosphere === 'night') {
-          wash.style.background = 'linear-gradient(135deg, rgba(10, 18, 42, 0.56), rgba(15, 23, 42, 0.64))';
-          wash.style.opacity = '1';
-          washDarkening = 0.60;
-        } else if (!isLiveAI && atmosphere === 'stormy') {
-          wash.style.background = 'linear-gradient(135deg, rgba(18, 26, 46, 0.46), rgba(30, 41, 59, 0.52))';
-          wash.style.opacity = '1';
-          washDarkening = 0.48;
-        } else if (!isLiveAI && atmosphere === 'rainy') {
-          wash.style.background = 'linear-gradient(135deg, rgba(22, 42, 72, 0.28), rgba(30, 58, 95, 0.34))';
-          wash.style.opacity = '1';
-          washDarkening = 0.30;
-        } else if (!isLiveAI && atmosphere === 'cloudy') {
-          wash.style.background = 'rgba(71, 85, 105, 0.14)';
-          wash.style.opacity = '1';
-          washDarkening = 0.14;
-        } else if (!isLiveAI && atmosphere === 'foggy') {
-          wash.style.background = 'rgba(226, 232, 240, 0.22)';
-          wash.style.opacity = '1';
-          washDarkening = -0.08;
-        } else {
-          wash.style.background = 'none';
-          wash.style.opacity = '0';
-        }
-      }
-
-      const leftR = (corners.tl[0] + corners.bl[0]) / 2;
-      const leftG = (corners.tl[1] + corners.bl[1]) / 2;
-      const leftB = (corners.tl[2] + corners.bl[2]) / 2;
-      const rawLum = 0.299 * leftR + 0.587 * leftG + 0.114 * leftB;
-      const effectiveLum = washDarkening >= 0
-        ? rawLum * (1 - washDarkening)
-        : rawLum + (255 - rawLum) * Math.abs(washDarkening);
-
-      if (effectiveLum > 148 && atmosphere !== 'night' && atmosphere !== 'stormy') {
-        heroCard.classList.remove('hero-ink-light');
-        heroCard.classList.add('hero-ink-dark');
-      } else {
-        heroCard.classList.remove('hero-ink-dark');
-        heroCard.classList.add('hero-ink-light');
-      }
-    }
-
     async function updateHeroLandmark(provinceName, districtName, atmosphere = 'partly') {
       const stage = document.getElementById('heroDioramaStage');
       const imgEl = document.getElementById('heroDioramaImg');
       const cap = document.getElementById('heroLandmarkCaption');
       const nameEl = document.getElementById('heroLandmarkName');
 
-      imgEl.classList.remove('loaded');
+      imgEl.classList.remove('loaded', 'island-tint');
+      imgEl.removeAttribute('data-atmo-tint');
       cap.classList.add('hidden');
 
       if (typeof fetchAIDiorama !== 'function') {
         stage.classList.add('hidden');
         stage.classList.remove('flex');
-        resetHeroBackdrop();
+        setDioramaLayoutActive(false);
         return;
       }
 
@@ -954,16 +828,18 @@
         stage.classList.add('hidden');
         stage.classList.remove('flex');
         imgEl.removeAttribute('src');
-        resetHeroBackdrop();
+        setDioramaLayoutActive(false);
         return;
       }
 
       const handleReady = () => {
         const latestKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}::${activeAtmosphere}`;
         if (expectedKey !== latestKey) return;
-        const corners = sampleDioramaBackdrop(imgEl);
         setDioramaLayoutActive(true);
-        applyHeroBackdrop(corners, diorama.isLiveAI, atmosphere);
+        if (!diorama.isLiveAI) {
+          imgEl.classList.add('island-tint');
+          imgEl.setAttribute('data-atmo-tint', atmosphere);
+        }
         stage.classList.remove('hidden');
         stage.classList.add('flex');
         requestAnimationFrame(() => imgEl.classList.add('loaded'));
@@ -975,7 +851,7 @@
       imgEl.onerror = () => {
         stage.classList.add('hidden');
         stage.classList.remove('flex');
-        resetHeroBackdrop();
+        setDioramaLayoutActive(false);
       };
       const sameSrc = imgEl.getAttribute('src') === diorama.url;
       imgEl.src = diorama.url;

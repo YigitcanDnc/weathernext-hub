@@ -141,9 +141,9 @@ const DISTRICT_LANDMARKS = {
 };
 
 const PREGENERATED_DIORAMAS = {
-  'İzmir': './dioramas/izmir.webp',
-  'İstanbul': './dioramas/istanbul.webp',
-  'Niğde': './dioramas/nigde.webp'
+  'İzmir': './dioramas/izmir.webp?v=2',
+  'İstanbul': './dioramas/istanbul.webp?v=2',
+  'Niğde': './dioramas/nigde.webp?v=2'
 };
 
 const DIORAMA_BLOB_CACHE = new Map();
