@@ -120,51 +120,54 @@
       background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
     }
 
-    /* Landmark photo background layer + weather-matched color grading */
+    /* Landmark AI 3D diorama background layer + weather-matched color grading */
+    .hero-card {
+      min-height: 260px;
+    }
+    @media (min-width: 640px) {
+      .hero-card { min-height: 300px; }
+    }
     .hero-landmark {
       position: absolute;
       inset: 0;
       background-size: cover;
       background-position: center;
       opacity: 0;
-      transform: scale(1.04);
+      transform: scale(1.03);
       transition: opacity 0.7s ease, filter 0.6s ease, transform 1.2s ease;
       pointer-events: none;
       z-index: 0;
     }
+    @media (min-width: 768px) {
+      .hero-landmark { background-position: right center; }
+    }
     .hero-landmark.loaded {
-      opacity: 0.42;
+      opacity: 0.96;
       transform: scale(1);
     }
-    .hero-card[data-atmosphere="sunny"] .hero-landmark {
-      filter: saturate(1.22) brightness(1.02) contrast(1.04);
+    .hero-landmark.static-tint[data-atmo-tint="cloudy"] {
+      filter: saturate(0.72) brightness(0.88);
     }
-    .hero-card[data-atmosphere="partly"] .hero-landmark {
-      filter: saturate(1.08) brightness(0.96);
+    .hero-landmark.static-tint[data-atmo-tint="rainy"] {
+      filter: saturate(0.65) brightness(0.78) hue-rotate(8deg);
     }
-    .hero-card[data-atmosphere="cloudy"] .hero-landmark {
-      filter: saturate(0.58) brightness(0.84) contrast(1.05);
+    .hero-landmark.static-tint[data-atmo-tint="stormy"] {
+      filter: saturate(0.55) brightness(0.64) contrast(1.12);
     }
-    .hero-card[data-atmosphere="rainy"] .hero-landmark {
-      filter: saturate(0.5) brightness(0.75) hue-rotate(8deg) contrast(1.08);
+    .hero-landmark.static-tint[data-atmo-tint="snowy"] {
+      filter: saturate(0.78) brightness(1.04) contrast(0.96);
     }
-    .hero-card[data-atmosphere="stormy"] .hero-landmark {
-      filter: saturate(0.45) brightness(0.62) contrast(1.18);
+    .hero-landmark.static-tint[data-atmo-tint="foggy"] {
+      filter: saturate(0.55) brightness(0.94) blur(1px);
     }
-    .hero-card[data-atmosphere="snowy"] .hero-landmark {
-      filter: saturate(0.65) brightness(1.06) contrast(0.95);
-    }
-    .hero-card[data-atmosphere="foggy"] .hero-landmark {
-      filter: saturate(0.4) brightness(0.95) blur(1.5px);
-    }
-    .hero-card[data-atmosphere="night"] .hero-landmark {
-      filter: saturate(0.65) brightness(0.52) contrast(1.12);
+    .hero-landmark.static-tint[data-atmo-tint="night"] {
+      filter: saturate(0.7) brightness(0.55) contrast(1.1);
     }
 
     .hero-scrim {
       position: absolute;
       inset: 0;
-      background: linear-gradient(105deg, rgba(15, 23, 42, 0.72) 0%, rgba(15, 23, 42, 0.44) 55%, rgba(15, 23, 42, 0.62) 100%);
+      background: linear-gradient(95deg, rgba(15, 23, 42, 0.78) 0%, rgba(15, 23, 42, 0.44) 46%, rgba(15, 23, 42, 0.12) 74%, rgba(15, 23, 42, 0.36) 100%);
       pointer-events: none;
       z-index: 1;
     }
@@ -371,8 +374,8 @@
               <div id="heroSunTimes" class="text-xs sm:text-sm font-bold mt-0.5">--:-- / --:--</div>
             </div>
           </div>
-          <div id="heroLandmarkCaption" class="hidden text-[11px] text-white/80 text-right flex items-center justify-end gap-1 pt-0.5">
-            <i data-lucide="camera" class="w-3 h-3"></i>
+          <div id="heroLandmarkCaption" class="hidden text-[11px] text-white/85 text-right flex items-center justify-end gap-1 pt-0.5 drop-shadow">
+            <i data-lucide="sparkles" class="w-3 h-3"></i>
             <span id="heroLandmarkName"></span>
           </div>
         </div>
@@ -750,32 +753,38 @@
       tick();
     }
 
-    async function updateHeroLandmark(provinceName, districtName) {
+    async function updateHeroLandmark(provinceName, districtName, atmosphere = 'partly') {
       const layer = document.getElementById('heroLandmarkLayer');
       const cap = document.getElementById('heroLandmarkCaption');
       const nameEl = document.getElementById('heroLandmarkName');
 
-      layer.classList.remove('loaded');
+      layer.classList.remove('loaded', 'static-tint');
+      layer.removeAttribute('data-atmo-tint');
       cap.classList.add('hidden');
 
-      if (typeof fetchLandmarkPhoto !== 'function') return;
-      const expectedKey = `${provinceName}::${districtName || '__MERKEZ__'}`;
-      const photo = await fetchLandmarkPhoto(provinceName, districtName);
+      if (typeof fetchAIDiorama !== 'function') return;
+      const expectedKey = `${provinceName}::${districtName || '__MERKEZ__'}::${atmosphere}`;
+      const apiBase = typeof getWeatherNextApiBase === 'function' ? getWeatherNextApiBase() : '';
+      const diorama = await fetchAIDiorama(provinceName, districtName, atmosphere, apiBase);
 
       // Guard against stale async completion if user already switched location
-      const currentKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}`;
-      if (expectedKey !== currentKey || !photo) return;
+      const currentKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}::${activeAtmosphere}`;
+      if (expectedKey !== currentKey || !diorama) return;
 
       const img = new Image();
       img.onload = () => {
-        const latestKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}`;
+        const latestKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}::${activeAtmosphere}`;
         if (expectedKey !== latestKey) return;
-        layer.style.backgroundImage = `url("${photo.url}")`;
+        layer.style.backgroundImage = `url("${diorama.url}")`;
+        if (!diorama.isLiveAI) {
+          layer.classList.add('static-tint');
+          layer.setAttribute('data-atmo-tint', atmosphere);
+        }
         layer.classList.add('loaded');
-        nameEl.textContent = photo.label;
+        nameEl.textContent = diorama.label;
         cap.classList.remove('hidden');
       };
-      img.src = photo.url;
+      img.src = diorama.url;
     }
 
     // --- THEME TOGGLE (Modern Web Guidance: dark-mode-toggle) ---
@@ -1200,7 +1209,6 @@
       document.getElementById('districtsSectionTitle').textContent = p.name;
       updateFavoriteButtonUI();
       renderFavoritesBar();
-      updateHeroLandmark(p.name, currentDistrict ? currentDistrict.name : null);
       loadForecast(lat, lon, displayLabel);
 
       if (provinceChanged) {
@@ -1366,10 +1374,13 @@
 
       const meta = getWeatherMeta(cur.weather_code ?? 0, cur.is_day ?? 1);
 
-      // 1. HERO CARD + WEATHER CANVAS
+      // 1. HERO CARD + WEATHER CANVAS + AI 3D DIORAMA
       const heroCard = document.getElementById('heroCard');
       heroCard.setAttribute('data-atmosphere', meta.atmo);
       startHeroWeatherEffect(meta.atmo);
+      if (currentProvince) {
+        updateHeroLandmark(currentProvince.name, currentDistrict ? currentDistrict.name : null, meta.atmo);
+      }
 
       document.getElementById('heroLocationName').innerHTML = `<i data-lucide="map-pin" class="w-5 h-5 opacity-90"></i> ${displayLabel}`;
       document.getElementById('heroWeatherIcon').innerHTML = `<i data-lucide="${meta.icon}" class="w-10 h-10 sm:w-12 sm:h-12"></i>`;

@@ -3,14 +3,15 @@ import uvicorn
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from connectors.weather_service import WeatherService
 from connectors.weathernext_engine import WeatherNextClient
+from connectors.diorama_generator import DioramaGenerator
 from engines.daily_engine import generate_daily_brief, get_wmo_text
 
-app = FastAPI(title="Hava Durumu — Google WeatherNext Backend", version="4.1.0")
+app = FastAPI(title="Hava Durumu — Google WeatherNext Backend", version="4.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,6 +23,7 @@ app.add_middleware(
 
 weather_svc = WeatherService()
 weathernext_client = WeatherNextClient()
+diorama_generator = DioramaGenerator()
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 if not os.path.exists(STATIC_DIR):
@@ -58,6 +60,52 @@ def get_locations_json():
 @app.get("/landmarks.js")
 def get_landmarks_js():
     return FileResponse(os.path.join(STATIC_DIR, "landmarks.js"), media_type="application/javascript")
+
+
+@app.get("/dioramas/{filename}")
+def get_diorama_asset(filename: str):
+    safe_name = os.path.basename(filename)
+    path = os.path.join(STATIC_DIR, "dioramas", safe_name)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Diorama bulunamadı")
+    return FileResponse(path, media_type="image/webp")
+
+
+@app.get("/api/diorama/status")
+def diorama_status():
+    return {
+        "enabled": diorama_generator.is_enabled(),
+        "model": diorama_generator.model,
+    }
+
+
+@app.get("/api/diorama")
+def get_city_diorama(
+    province: str = "İstanbul",
+    district: Optional[str] = None,
+    landmark: Optional[str] = None,
+    atmosphere: str = "partly",
+):
+    """
+    Returns an AI-generated 45-degree isometric 3D miniature weather diorama (WebP)
+    matching the selected province/district landmark and live weather atmosphere.
+    """
+    webp_bytes = diorama_generator.get_or_generate(
+        province=province,
+        district=district,
+        landmark=landmark,
+        atmosphere=atmosphere,
+    )
+    if not webp_bytes:
+        raise HTTPException(
+            status_code=404,
+            detail=diorama_generator.last_error or "AI diorama üretimi yapılandırılmamış.",
+        )
+    return Response(
+        content=webp_bytes,
+        media_type="image/webp",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @app.get("/api/health")
