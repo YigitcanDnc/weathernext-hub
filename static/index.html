@@ -9,8 +9,8 @@
       document.querySelector('meta[name="color-scheme"]').content = localStorage.getItem("color-scheme") ?? "light dark";
     } catch {}
   </script>
-  <title>Hava & Yaşam — 81 İl & 972 İlçe Günlük Hava Durumu</title>
-  <meta name="description" content="Türkiye'nin 81 ili ve 972 ilçesi için saatlik yağış takibi, 7 günlük tahmin ve günlük yaşam rehberi.">
+  <title>Hava & Yaşam — Günlük Hava Durumu</title>
+  <meta name="description" content="Saatlik yağış takibi, 7 günlük tahmin, işe gidiş-geliş özeti ve günlük hava durumu asistanı.">
   <meta name="theme-color" content="#0ea5e9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -149,10 +149,7 @@
         <div class="flex items-center gap-2.5">
           <img src="./icon.svg" alt="Hava & Yaşam" class="w-9 h-9 rounded-xl shadow-sm shrink-0">
           <div>
-            <div class="flex items-center gap-2">
-              <h1 class="text-base sm:text-lg font-extrabold tracking-tight leading-none">Hava & Yaşam</h1>
-              <span class="hidden sm:inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400">81 İl • 972 İlçe</span>
-            </div>
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight leading-none">Hava & Yaşam</h1>
             <p class="text-[11px] text-sec mt-0.5">Günlük Hava Durumu & Yağış Takibi</p>
           </div>
         </div>
@@ -189,7 +186,7 @@
         </div>
       </div>
 
-      <!-- Second Row: 81 İl / 972 İlçe Picker + Quick Search -->
+      <!-- Second Row: Location Picker + Quick Search -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div class="relative">
           <input
@@ -327,36 +324,77 @@
       <div id="hourlyStrip" class="hourly-strip flex gap-2.5 overflow-x-auto pb-2"></div>
     </section>
 
-    <!-- 4. GÜNLÜK YAŞAM REHBERİ (KIYAFET, ŞEMSİYE & GÜNÜN 4 ZAMAN DİLİMİ) -->
+    <!-- 4. GÜNLÜK HAYAT KARTLARI (DÜNE GÖRE FARK, İŞE GİDİŞ-GELİŞ, BASINÇ & KONFOR) -->
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <!-- Clothing -->
-      <div class="card rounded-3xl p-5 space-y-2">
-        <div class="flex items-center gap-2 text-indigo-500">
-          <i data-lucide="shirt" class="w-5 h-5"></i>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-sec">Ne Giymeli?</h3>
+      <!-- Düne Göre Karşılaştırma -->
+      <div class="card rounded-3xl p-5 flex flex-col justify-between gap-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-amber-500">
+            <i data-lucide="thermometer" class="w-5 h-5"></i>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-sec">Düne Göre Fark</h3>
+          </div>
+          <span id="yesterdayDeltaBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-500/15 text-sec">--</span>
         </div>
-        <div id="clothingTitle" class="text-lg font-bold">--</div>
-        <p id="clothingDesc" class="text-xs sm:text-sm text-sec leading-relaxed">Hesaplanıyor...</p>
+        <div>
+          <div id="yesterdayTitle" class="text-lg font-bold leading-snug">--</div>
+          <p id="yesterdayDesc" class="text-xs sm:text-sm text-sec mt-1.5 leading-relaxed">Dünkü verilerle karşılaştırılıyor...</p>
+        </div>
+        <div class="sub-card rounded-2xl px-3.5 py-2.5 flex items-center justify-between text-xs">
+          <span class="text-sec">Dün aynı saat / Gün içi max</span>
+          <span id="yesterdayRefNums" class="font-bold">--° / --°</span>
+        </div>
       </div>
 
-      <!-- Umbrella -->
-      <div class="card rounded-3xl p-5 space-y-2">
-        <div class="flex items-center gap-2 text-sky-500">
-          <i data-lucide="umbrella" class="w-5 h-5"></i>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-sec">Şemsiye & Yağmurluk</h3>
+      <!-- İşe Gidiş-Geliş Özeti -->
+      <div class="card rounded-3xl p-5 flex flex-col justify-between gap-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-sky-500">
+            <i data-lucide="car" class="w-5 h-5"></i>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-sec">İşe Gidiş-Geliş</h3>
+          </div>
+          <span id="commuteStatusBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Rahat</span>
         </div>
-        <div id="umbrellaTitle" class="text-lg font-bold">--</div>
-        <p id="umbrellaDesc" class="text-xs sm:text-sm text-sec leading-relaxed">Hesaplanıyor...</p>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="sub-card rounded-2xl p-3 space-y-1">
+            <div class="text-[11px] font-bold text-sec flex items-center justify-between">
+              <span>Sabah 07–09</span>
+              <i id="commuteMorningIcon" data-lucide="sunrise" class="w-3.5 h-3.5 text-amber-500"></i>
+            </div>
+            <div id="commuteMorningTemp" class="text-base font-extrabold">--°</div>
+            <div id="commuteMorningNote" class="text-[11px] text-sec leading-tight">--</div>
+          </div>
+          <div class="sub-card rounded-2xl p-3 space-y-1">
+            <div class="text-[11px] font-bold text-sec flex items-center justify-between">
+              <span>Akşam 17–20</span>
+              <i id="commuteEveningIcon" data-lucide="sunset" class="w-3.5 h-3.5 text-indigo-500"></i>
+            </div>
+            <div id="commuteEveningTemp" class="text-base font-extrabold">--°</div>
+            <div id="commuteEveningNote" class="text-[11px] text-sec leading-tight">--</div>
+          </div>
+        </div>
+        <p id="commuteSummary" class="text-xs text-sec leading-relaxed">Gidiş ve dönüş saatleri analiz ediliyor...</p>
       </div>
 
-      <!-- Comfort / Outdoor -->
-      <div class="card rounded-3xl p-5 space-y-2">
-        <div class="flex items-center gap-2 text-emerald-500">
-          <i data-lucide="footprints" class="w-5 h-5"></i>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-sec">Açık Hava & Yürüyüş</h3>
+      <!-- Basınç & Hissedilen Konfor -->
+      <div class="card rounded-3xl p-5 flex flex-col justify-between gap-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-indigo-500">
+            <i data-lucide="gauge" class="w-5 h-5"></i>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-sec">Basınç & Konfor</h3>
+          </div>
+          <span id="pressureTrendBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">Sabit</span>
         </div>
-        <div id="outdoorTitle" class="text-lg font-bold">--</div>
-        <p id="outdoorDesc" class="text-xs sm:text-sm text-sec leading-relaxed">Hesaplanıyor...</p>
+        <div>
+          <div class="flex items-baseline gap-2">
+            <span id="pressureValue" class="text-2xl font-extrabold">-- hPa</span>
+            <span id="dewPointValue" class="text-xs font-semibold text-sec">Çiğ noktası: --°</span>
+          </div>
+          <p id="pressureHealthNote" class="text-xs sm:text-sm text-sec mt-1.5 leading-relaxed">Atmosferik basınç ve nem dengesi hesaplanıyor...</p>
+        </div>
+        <div class="sub-card rounded-2xl px-3.5 py-2.5 flex items-center justify-between text-xs">
+          <span class="text-sec">Hava Konforu</span>
+          <span id="dewComfortLabel" class="font-bold">--</span>
+        </div>
       </div>
     </section>
 
@@ -405,7 +443,7 @@
   </main>
 
   <footer class="py-6 text-center text-xs text-sec">
-    Hava & Yaşam • Türkiye 81 İl & 972 İlçe Günlük Hava Durumu Asistanı
+    Hava & Yaşam • Günlük Hava Durumu Asistanı
   </footer>
 
   <script>
@@ -790,10 +828,10 @@
       showToast('Hava durumu güncellendi');
     }
 
-    // --- FETCH FORECAST (OPEN-METEO 7 DAYS + HOURLY RAIN + UV + SUNRISE/SUNSET) ---
+    // --- FETCH FORECAST (OPEN-METEO 7 DAYS + PAST 1 DAY + PRESSURE + DEW POINT + VISIBILITY) ---
     async function loadForecast(lat, lon, displayLabel) {
       try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,snowfall,wind_speed_10m,wind_gusts_10m,uv_index,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_gusts_10m,weather_code&timezone=auto&forecast_days=7`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,dew_point_2m,pressure_msl,visibility,precipitation_probability,precipitation,rain,snowfall,wind_speed_10m,wind_gusts_10m,uv_index,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_gusts_10m,pressure_msl,weather_code&timezone=auto&past_days=1&forecast_days=7`;
         const resp = await fetch(url);
         const data = await resp.json();
         renderForecast(data, displayLabel);
@@ -822,10 +860,13 @@
       const hourly = data.hourly || {};
       const daily = data.daily || {};
 
-      // Find current hour index in hourly array
+      // Find current hour index in hourly array and today's index in daily array (past_days=1 shifts today to index 1)
       const curTimePrefix = (cur.time || '').slice(0, 13);
+      const todayDateStr = (cur.time || '').slice(0, 10);
       let startIdx = (hourly.time || []).findIndex(t => t.startsWith(curTimePrefix));
-      if (startIdx < 0) startIdx = 0;
+      if (startIdx < 0) startIdx = 24;
+      let todayDailyIdx = (daily.time || []).findIndex(d => d === todayDateStr);
+      if (todayDailyIdx < 0) todayDailyIdx = (daily.time || []).length > 7 ? 1 : 0;
 
       const meta = getWeatherMeta(cur.weather_code ?? 0, cur.is_day ?? 1);
 
@@ -838,17 +879,17 @@
       document.getElementById('heroFeelsLike').textContent = `Hissedilen ${Math.round(cur.apparent_temperature ?? 0)}°`;
       document.getElementById('heroCondition').textContent = meta.text;
 
-      const todayMax = Math.round(daily.temperature_2m_max?.[0] ?? cur.temperature_2m ?? 0);
-      const todayMin = Math.round(daily.temperature_2m_min?.[0] ?? cur.temperature_2m ?? 0);
+      const todayMax = Math.round(daily.temperature_2m_max?.[todayDailyIdx] ?? cur.temperature_2m ?? 0);
+      const todayMin = Math.round(daily.temperature_2m_min?.[todayDailyIdx] ?? cur.temperature_2m ?? 0);
       document.getElementById('heroHighLow').textContent = `En Yüksek: ${todayMax}°  •  En Düşük: ${todayMin}°`;
 
       document.getElementById('heroWind').textContent = `${Math.round(cur.wind_speed_10m ?? 0)} km/s`;
       document.getElementById('heroHumidity').textContent = `%${cur.relative_humidity_2m ?? 0}`;
-      const uvNow = hourly.uv_index?.[startIdx] ?? daily.uv_index_max?.[0] ?? 0;
+      const uvNow = hourly.uv_index?.[startIdx] ?? daily.uv_index_max?.[todayDailyIdx] ?? 0;
       document.getElementById('heroUV').textContent = getUVLabel(uvNow);
 
-      const sunrise = (daily.sunrise?.[0] || '').split('T')[1]?.slice(0, 5) || '--:--';
-      const sunset = (daily.sunset?.[0] || '').split('T')[1]?.slice(0, 5) || '--:--';
+      const sunrise = (daily.sunrise?.[todayDailyIdx] || '').split('T')[1]?.slice(0, 5) || '--:--';
+      const sunset = (daily.sunset?.[todayDailyIdx] || '').split('T')[1]?.slice(0, 5) || '--:--';
       document.getElementById('heroSunTimes').textContent = `${sunrise} / ${sunset}`;
 
       // Slice next 24h & 48h from current hour
@@ -888,14 +929,14 @@
       // 3. 48 SAATLİK YATAY AKIŞ
       renderHourlyStrip(next48);
 
-      // 4. GÜNLÜK YAŞAM REHBERİ (KIYAFET, ŞEMSİYE, AÇIK HAVA)
-      renderLifestyleAdvice(cur, next24, todayMin, todayMax);
+      // 4. GÜNLÜK HAYAT KARTLARI (DÜNE GÖRE FARK, İŞE GİDİŞ-GELİŞ, BASINÇ & KONFOR)
+      renderDailyInsights(cur, hourly, daily, startIdx, todayDailyIdx);
 
       // 5. GÜNÜN 4 ZAMAN DİLİMİ
-      renderDayparts(hourly, daily.time?.[0]);
+      renderDayparts(hourly, daily.time?.[todayDailyIdx]);
 
       // 6. 7 GÜNLÜK TAHMİN
-      renderSevenDayForecast(daily);
+      renderSevenDayForecast(daily, todayDailyIdx);
 
       lucide.createIcons();
     }
@@ -1045,61 +1086,144 @@
       });
     }
 
-    function renderLifestyleAdvice(cur, next24, todayMin, todayMax) {
-      const feels = cur.apparent_temperature ?? cur.temperature_2m ?? 15;
-      const diff = todayMax - todayMin;
-      const maxProb = Math.max(...next24.map(h => h.prob), 0);
-      const totalMm = next24.reduce((a, b) => a + b.mm, 0);
-      const wind = cur.wind_speed_10m ?? 0;
+    function renderDailyInsights(cur, hourly, daily, startIdx, todayDailyIdx) {
+      const todayDateStr = daily.time?.[todayDailyIdx] || (cur.time || '').slice(0, 10);
 
-      // Clothing
-      let cTitle = 'Katmanlı Giyim', cDesc = '';
-      if (feels < 2) {
-        cTitle = 'Kalın Kışlık & Atkı';
-        cDesc = 'Hava oldukça soğuk. Kalın kaban, bere, atkı ve eldivenle çıkmanız önerilir.';
-      } else if (feels < 10) {
-        cTitle = 'Sıcak Tutan Mont';
-        cDesc = 'Serin ve soğuk bir hava hakim. Kazak üzerine rüzgar kesici mont tercih edin.';
-      } else if (feels < 17) {
-        cTitle = 'Katmanlı (Trençkot / Hırka)';
-        cDesc = `Gün içi sıcaklık ${todayMin}° ile ${todayMax}° arasında değişiyor. Çıkarılabilir katmanlar en rahatı olur.`;
-      } else if (feels < 24) {
-        cTitle = 'Hafif & Mevsimlik';
-        cDesc = 'Gömlek veya tişört için ideal; akşam serinliğine karşı ince bir ceket alabilirsiniz.';
+      // --- 1. DÜNE GÖRE SICAKLIK KARŞILAŞTIRMASI ---
+      const nowTemp = cur.temperature_2m ?? 15;
+      const yestSameHourTemp = startIdx >= 24 ? hourly.temperature_2m?.[startIdx - 24] : null;
+      const yestMax = todayDailyIdx > 0 ? daily.temperature_2m_max?.[todayDailyIdx - 1] : null;
+      const todayMax = daily.temperature_2m_max?.[todayDailyIdx] ?? nowTemp;
+
+      const deltaNow = yestSameHourTemp != null ? Math.round(nowTemp - yestSameHourTemp) : 0;
+      const deltaMax = yestMax != null ? Math.round(todayMax - yestMax) : 0;
+
+      const badgeEl = document.getElementById('yesterdayDeltaBadge');
+      const yTitleEl = document.getElementById('yesterdayTitle');
+      const yDescEl = document.getElementById('yesterdayDesc');
+
+      if (deltaNow >= 2) {
+        badgeEl.textContent = `+${deltaNow}° Daha Sıcak`;
+        badgeEl.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400';
+        yTitleEl.textContent = `Düne göre ${deltaNow}° daha sıcak`;
+        yDescEl.textContent = deltaMax >= 2
+          ? `Gün genelinde de sıcaklık dünden yaklaşık ${deltaMax}° yukarıda seyredecek.`
+          : 'Şu an dün bu saatlere göre daha ılık bir hava hakim.';
+      } else if (deltaNow <= -2) {
+        badgeEl.textContent = `${deltaNow}° Daha Serin`;
+        badgeEl.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400';
+        yTitleEl.textContent = `Düne göre ${Math.abs(deltaNow)}° daha serin`;
+        yDescEl.textContent = deltaMax <= -2
+          ? `Gün içi en yüksek sıcaklık da dünden ${Math.abs(deltaMax)}° daha düşük kalacak.`
+          : 'Şu an dün bu saatlere kıyasla belirgin bir serinleme var.';
       } else {
-        cTitle = 'Yazlık & Nefes Alan Kıyafet';
-        cDesc = 'Sıcak bir gün. Pamuklu/keten ince kıyafetler ve güneş gözlüğü önerilir.';
+        badgeEl.textContent = 'Dünle Benzer';
+        badgeEl.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
+        yTitleEl.textContent = 'Dünle neredeyse aynı sıcaklıkta';
+        yDescEl.textContent = Math.abs(deltaMax) >= 2
+          ? `Şu an benzer ancak gün ortasında düne göre ${deltaMax > 0 ? '+' + deltaMax : deltaMax}° fark oluşacak.`
+          : 'Sıcaklık seyri düne oldukça yakın ilerliyor, ani bir değişim yok.';
       }
-      if (diff >= 10) cDesc += ' Akşam sıcaklık belirgin şekilde düşecek.';
 
-      document.getElementById('clothingTitle').textContent = cTitle;
-      document.getElementById('clothingDesc').textContent = cDesc;
+      document.getElementById('yesterdayRefNums').textContent =
+        `${yestSameHourTemp != null ? Math.round(yestSameHourTemp) + '°' : '--'} / ${yestMax != null ? Math.round(yestMax) + '°' : '--'}`;
 
-      // Umbrella
-      let uTitle = 'Şemsiye Gerekmez', uDesc = 'Önümüzdeki 24 saatte yağış ihtimali düşük, yanınızda taşımanıza gerek yok.';
-      if (totalMm >= 0.5 || maxProb >= 50) {
-        uTitle = 'Şemsiye Mutlaka Alın';
-        uDesc = `Gün içinde yağış ihtimali %${maxProb} seviyesine ulaşıyor. Su geçirmez ceket veya şemsiye önerilir.`;
-      } else if (maxProb >= 25) {
-        uTitle = 'Küçük Şemsiye İyi Olur';
-        uDesc = `Kısa süreli hafif çisenti ihtimali (%${maxProb}) bulunuyor.`;
+      // --- 2. İŞE GİDİŞ-GELİŞ ÖZETİ (SABAH 07-09 & AKŞAM 17-20) ---
+      function summarizeWindow(targetHours) {
+        const temps = [], probs = [], mms = [], winds = [], visList = [];
+        (hourly.time || []).forEach((t, idx) => {
+          if (t.startsWith(todayDateStr)) {
+            const hr = parseInt(t.split('T')[1].slice(0, 2), 10);
+            if (targetHours.includes(hr)) {
+              temps.push(hourly.temperature_2m?.[idx] ?? 15);
+              probs.push(hourly.precipitation_probability?.[idx] ?? 0);
+              mms.push(hourly.precipitation?.[idx] ?? 0);
+              winds.push(hourly.wind_speed_10m?.[idx] ?? 0);
+              visList.push((hourly.visibility?.[idx] ?? 10000) / 1000);
+            }
+          }
+        });
+        const avgTemp = temps.length ? Math.round(temps.reduce((a, b) => a + b, 0) / temps.length) : Math.round(nowTemp);
+        const maxProb = probs.length ? Math.max(...probs) : 0;
+        const maxMm = mms.length ? Math.max(...mms) : 0;
+        const maxWind = winds.length ? Math.round(Math.max(...winds)) : 0;
+        const minVis = visList.length ? Math.min(...visList) : 10;
+
+        let risk = 0;
+        let note = 'Açık ve rahat';
+        if (maxMm >= 2.0 || maxProb >= 65) { risk = 2; note = `Yağışlı (%${maxProb})`; }
+        else if (minVis < 2.0) { risk = 2; note = `Sisli (${minVis.toFixed(1)} km)`; }
+        else if (maxWind >= 40) { risk = 2; note = `Rüzgarlı (${maxWind} km/s)`; }
+        else if (maxProb >= 30 || maxMm >= 0.2) { risk = 1; note = `Hafif yağış (%${maxProb})`; }
+        else if (avgTemp <= 2) { risk = 1; note = 'Soğuk / Buzlanma riski'; }
+        else if (maxWind >= 25) { risk = 1; note = `Esintili (${maxWind} km/s)`; }
+
+        return { avgTemp, maxProb, maxMm, maxWind, minVis, risk, note };
       }
-      document.getElementById('umbrellaTitle').textContent = uTitle;
-      document.getElementById('umbrellaDesc').textContent = uDesc;
 
-      // Outdoor
-      let oTitle = 'Dış Mekan İçin Harika', oDesc = 'Yürüyüş, koşu ve açık hava planları için oldukça konforlu bir hava var.';
-      if (maxProb >= 60 || wind >= 35 || feels < 3 || feels > 33) {
-        oTitle = 'Kapalı Mekan Tercih Edin';
-        oDesc = wind >= 35
-          ? `Rüzgar kuvvetli (${Math.round(wind)} km/s). Açık hava aktiviteleri zorlayıcı olabilir.`
-          : 'Yağış veya sıcaklık koşulları nedeniyle açık hava sporlarını ertelemek daha konforlu olur.';
-      } else if (maxProb >= 30 || feels < 10 || wind >= 22) {
-        oTitle = 'Kısa Yürüyüşler İçin Uygun';
-        oDesc = 'Rüzgar ve serinliğe uygun giyinerek dışarıda rahatça vakit geçirebilirsiniz.';
+      const morning = summarizeWindow([7, 8, 9]);
+      const evening = summarizeWindow([17, 18, 19, 20]);
+
+      document.getElementById('commuteMorningTemp').textContent = `${morning.avgTemp}°`;
+      document.getElementById('commuteMorningNote').textContent = morning.note;
+      document.getElementById('commuteEveningTemp').textContent = `${evening.avgTemp}°`;
+      document.getElementById('commuteEveningNote').textContent = evening.note;
+
+      const cBadge = document.getElementById('commuteStatusBadge');
+      const cSummary = document.getElementById('commuteSummary');
+      const worstRisk = Math.max(morning.risk, evening.risk);
+
+      if (worstRisk === 2) {
+        cBadge.textContent = 'Dikkatli Olun';
+        cBadge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400';
+        cSummary.textContent = morning.risk === 2 && evening.risk === 2
+          ? 'Hem sabah gidişte hem akşam dönüşte yağış/görüş kaynaklı trafik yoğunluğu oluşabilir.'
+          : (morning.risk === 2
+            ? 'Sabah çıkış saatlerinde yağış veya düşük görüş bekleniyor, erken yola çıkın.'
+            : 'Sabah sakin ancak akşam iş dönüşünde yağış ve trafik yoğunluğu riski var.');
+      } else if (worstRisk === 1) {
+        cBadge.textContent = 'Orta';
+        cBadge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400';
+        cSummary.textContent = 'Gidiş-geliş saatlerinde hafif yağış, rüzgar veya serinlik etkili olabilir.';
+      } else {
+        cBadge.textContent = 'Rahat';
+        cBadge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
+        cSummary.textContent = 'Sabah ve akşam saatlerinde görüş net, yol ve ulaşım koşulları elverişli.';
       }
-      document.getElementById('outdoorTitle').textContent = oTitle;
-      document.getElementById('outdoorDesc').textContent = oDesc;
+
+      // --- 3. BASINÇ & HİSSEDİLEN KONFOR (ÇİĞ NOKTASI & MİGREN ETKİSİ) ---
+      const pNow = cur.pressure_msl ?? hourly.pressure_msl?.[startIdx] ?? 1013;
+      const pPast = startIdx >= 6 ? (hourly.pressure_msl?.[startIdx - 6] ?? pNow) : pNow;
+      const pDelta = pNow - pPast;
+      const dew = hourly.dew_point_2m?.[startIdx] ?? 10;
+
+      document.getElementById('pressureValue').textContent = `${Math.round(pNow)} hPa`;
+      document.getElementById('dewPointValue').textContent = `Çiğ noktası: ${Math.round(dew)}°`;
+
+      const pBadge = document.getElementById('pressureTrendBadge');
+      const pNote = document.getElementById('pressureHealthNote');
+
+      if (pDelta <= -3.5) {
+        pBadge.textContent = `Hızlı Düşüş (${pDelta.toFixed(1)} hPa)`;
+        pBadge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400';
+        pNote.textContent = 'Hava basıncı hızlı düşüyor. Hassas bünyelerde baş ağrısı, migren veya halsizlik hissi yaratabilir.';
+      } else if (pDelta >= 3.5) {
+        pBadge.textContent = `Yükseliyor (+${pDelta.toFixed(1)} hPa)`;
+        pBadge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
+        pNote.textContent = 'Basınç yükseliyor; hava dengeleniyor ve genellikle daha zinde hissettiren bir atmosfer oluşuyor.';
+      } else {
+        pBadge.textContent = 'Dengeli / Sabit';
+        pBadge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400';
+        pNote.textContent = 'Atmosferik basınç dengeli seyrediyor; basınç kaynaklı baş ağrısı veya yorgunluk riski düşük.';
+      }
+
+      let dewLabel = 'Ferah ve Konforlu';
+      if (dew < 5) dewLabel = 'Kuru Hava (Cilt kuruluğu olabilir)';
+      else if (dew < 13) dewLabel = 'Ferah ve Konforlu';
+      else if (dew < 18) dewLabel = 'Hafif Nemli';
+      else if (dew < 21) dewLabel = 'Nemli / Ağır';
+      else dewLabel = 'Bunaltıcı Nem';
+      document.getElementById('dewComfortLabel').textContent = dewLabel;
     }
 
     function renderDayparts(hourly, todayDateStr) {
@@ -1145,21 +1269,23 @@
       });
     }
 
-    function renderSevenDayForecast(daily) {
+    function renderSevenDayForecast(daily, startDailyIdx = 0) {
       const list = document.getElementById('sevenDayList');
       list.innerHTML = '';
-      const dates = daily.time || [];
-      const mins = daily.temperature_2m_min || [];
-      const maxs = daily.temperature_2m_max || [];
+      const dates = (daily.time || []).slice(startDailyIdx, startDailyIdx + 7);
+      const mins = (daily.temperature_2m_min || []).slice(startDailyIdx, startDailyIdx + 7);
+      const maxs = (daily.temperature_2m_max || []).slice(startDailyIdx, startDailyIdx + 7);
+      const codes = (daily.weather_code || []).slice(startDailyIdx, startDailyIdx + 7);
+      const probs = (daily.precipitation_probability_max || []).slice(startDailyIdx, startDailyIdx + 7);
       const weekMin = Math.min(...mins);
       const weekMax = Math.max(...maxs);
       const weekSpan = Math.max(1, weekMax - weekMin);
 
       dates.forEach((dateStr, idx) => {
-        const meta = getWeatherMeta(daily.weather_code?.[idx] ?? 0, 1);
+        const meta = getWeatherMeta(codes[idx] ?? 0, 1);
         const tMin = Math.round(mins[idx] ?? 0);
         const tMax = Math.round(maxs[idx] ?? 0);
-        const prob = daily.precipitation_probability_max?.[idx] ?? 0;
+        const prob = probs[idx] ?? 0;
         const leftPct = ((mins[idx] - weekMin) / weekSpan) * 100;
         const widthPct = Math.max(12, ((maxs[idx] - mins[idx]) / weekSpan) * 100);
 

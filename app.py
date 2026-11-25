@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from connectors.weather_service import WeatherService
 from engines.daily_engine import generate_daily_brief, get_wmo_text
 
-app = FastAPI(title="Hava & Yaşam — 81 İl & 972 İlçe Günlük Hava Durumu", version="3.0.0")
+app = FastAPI(title="Hava & Yaşam — Günlük Hava Durumu", version="3.1.0")
 
 app.add_middleware(
     CORSMiddleware,
