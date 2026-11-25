@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import logging
 from datetime import datetime, timezone, timedelta
@@ -53,8 +54,25 @@ class WeatherNextClient:
             return True
         try:
             import ee
+            ee_creds_json = os.environ.get("EE_CREDENTIALS_JSON")
             sa_key = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-            if sa_key and os.path.exists(sa_key):
+            if ee_creds_json:
+                from google.oauth2.credentials import Credentials
+                info = json.loads(ee_creds_json)
+                creds = Credentials(
+                    token=None,
+                    refresh_token=info["refresh_token"],
+                    token_uri=info.get("token_uri", "https://oauth2.googleapis.com/token"),
+                    client_id=info["client_id"],
+                    client_secret=info["client_secret"],
+                    scopes=info.get("scopes")
+                    or [
+                        "https://www.googleapis.com/auth/earthengine.readonly",
+                        "https://www.googleapis.com/auth/devstorage.read_only",
+                    ],
+                )
+                ee.Initialize(credentials=creds, project=self.project_id)
+            elif sa_key and os.path.exists(sa_key):
                 from google.oauth2 import service_account
                 scopes = ["https://www.googleapis.com/auth/earthengine.readonly"]
                 creds = service_account.Credentials.from_service_account_file(sa_key, scopes=scopes)
