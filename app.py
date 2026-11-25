@@ -10,7 +10,7 @@ from connectors.weather_service import WeatherService
 from connectors.weathernext_engine import WeatherNextClient
 from engines.daily_engine import generate_daily_brief, get_wmo_text
 
-app = FastAPI(title="Hava & Yaşam — Google WeatherNext Backend", version="4.0.0")
+app = FastAPI(title="Hava Durumu — Google WeatherNext Backend", version="4.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,6 +55,11 @@ def get_locations_json():
     return FileResponse(os.path.join(STATIC_DIR, "turkey_locations.json"))
 
 
+@app.get("/landmarks.js")
+def get_landmarks_js():
+    return FileResponse(os.path.join(STATIC_DIR, "landmarks.js"), media_type="application/javascript")
+
+
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "service": "weathernext-api"}
@@ -88,6 +93,20 @@ def weathernext_point_forecast(lat: float, lon: float, hours: int = 72):
         raise HTTPException(
             status_code=503,
             detail=f"Google WeatherNext erişimi şu an aktif değil: {weathernext_client.last_error}",
+        )
+    return fc
+
+
+@app.get("/api/weathernext/extended15d")
+def weathernext_extended_15d(lat: float, lon: float):
+    """
+    Live Google DeepMind WeatherNext 2 (0.25deg, 15-day horizon) daily aggregated forecast.
+    """
+    fc = weathernext_client.get_extended_15d_forecast(lat, lon)
+    if not fc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Google WeatherNext 15 günlük veri erişimi şu an aktif değil: {weathernext_client.last_error}",
         )
     return fc
 

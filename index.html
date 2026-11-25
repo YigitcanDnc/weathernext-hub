@@ -9,12 +9,12 @@
       document.querySelector('meta[name="color-scheme"]').content = localStorage.getItem("color-scheme") ?? "light dark";
     } catch {}
   </script>
-  <title>Hava & Yaşam — Günlük Hava Durumu</title>
-  <meta name="description" content="Saatlik yağış takibi, 7 günlük tahmin, işe gidiş-geliş özeti ve günlük hava durumu asistanı.">
+  <title>Hava Durumu</title>
+  <meta name="description" content="Saatlik yağış takibi, 15 günlük tahmin ve günlük hava durumu.">
   <meta name="theme-color" content="#0ea5e9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Hava & Yaşam">
+  <meta name="apple-mobile-web-app-title" content="Hava Durumu">
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <link rel="apple-touch-icon" href="./icon.svg">
@@ -25,6 +25,8 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- 81 Province & Landmark Photo Catalog -->
+  <script src="./landmarks.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -118,6 +120,84 @@
       background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
     }
 
+    /* Landmark photo background layer + weather-matched color grading */
+    .hero-landmark {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transform: scale(1.04);
+      transition: opacity 0.7s ease, filter 0.6s ease, transform 1.2s ease;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .hero-landmark.loaded {
+      opacity: 0.42;
+      transform: scale(1);
+    }
+    .hero-card[data-atmosphere="sunny"] .hero-landmark {
+      filter: saturate(1.22) brightness(1.02) contrast(1.04);
+    }
+    .hero-card[data-atmosphere="partly"] .hero-landmark {
+      filter: saturate(1.08) brightness(0.96);
+    }
+    .hero-card[data-atmosphere="cloudy"] .hero-landmark {
+      filter: saturate(0.58) brightness(0.84) contrast(1.05);
+    }
+    .hero-card[data-atmosphere="rainy"] .hero-landmark {
+      filter: saturate(0.5) brightness(0.75) hue-rotate(8deg) contrast(1.08);
+    }
+    .hero-card[data-atmosphere="stormy"] .hero-landmark {
+      filter: saturate(0.45) brightness(0.62) contrast(1.18);
+    }
+    .hero-card[data-atmosphere="snowy"] .hero-landmark {
+      filter: saturate(0.65) brightness(1.06) contrast(0.95);
+    }
+    .hero-card[data-atmosphere="foggy"] .hero-landmark {
+      filter: saturate(0.4) brightness(0.95) blur(1.5px);
+    }
+    .hero-card[data-atmosphere="night"] .hero-landmark {
+      filter: saturate(0.65) brightness(0.52) contrast(1.12);
+    }
+
+    .hero-scrim {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, rgba(15, 23, 42, 0.72) 0%, rgba(15, 23, 42, 0.44) 55%, rgba(15, 23, 42, 0.62) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .hero-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 3;
+    }
+
+    /* Native Modal Search Dialog (Modern Web Guidance: dialog) */
+    dialog:modal {
+      overscroll-behavior: contain;
+    }
+    dialog::backdrop {
+      overflow: hidden;
+      overscroll-behavior: contain;
+      background: rgba(15, 23, 42, 0.58);
+      backdrop-filter: blur(6px);
+    }
+    dialog[open] {
+      display: flex;
+      flex-direction: column;
+    }
+
     /* Theme toggle icon visibility via color-scheme meta & media query */
     .theme-icon-sun { display: none; }
     .theme-icon-moon { display: inline-flex; }
@@ -141,39 +221,41 @@
 </head>
 <body class="min-h-screen flex flex-col antialiased">
 
-  <!-- Sticky Header -->
+  <!-- Sticky Compact Header -->
   <header class="app-header sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-3">
-      <!-- Top Row: Brand + Quick Actions -->
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-2.5">
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2.5">
-          <img src="./icon.svg" alt="Hava & Yaşam" class="w-9 h-9 rounded-xl shadow-sm shrink-0">
-          <div>
-            <h1 class="text-base sm:text-lg font-extrabold tracking-tight leading-none">Hava & Yaşam</h1>
-            <p class="text-[11px] text-sec mt-0.5">Günlük Hava Durumu & Yağış Takibi</p>
-          </div>
+          <img src="./icon.svg" alt="Hava Durumu" class="w-9 h-9 rounded-xl shadow-sm shrink-0">
+          <h1 class="text-base sm:text-lg font-extrabold tracking-tight leading-none">Hava Durumu</h1>
         </div>
 
         <div class="flex items-center gap-1.5 sm:gap-2">
+          <!-- Magnifying Glass Search Trigger -->
+          <button type="button" id="openSearchBtn" onclick="openSearchDialog()" class="app-input hover:border-sky-500 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition" title="İl veya İlçe Ara">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-sky-500"></i>
+            <span>Konum Ara</span>
+          </button>
+
           <!-- PWA Install Button (hidden until installable) -->
-          <button id="pwaInstallBtn" onclick="installPWA()" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sky-500 hover:bg-sky-600 text-white transition shadow-sm">
+          <button type="button" id="pwaInstallBtn" onclick="installPWA()" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-600 text-white transition shadow-sm">
             <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
             <span class="hidden sm:inline">Telefona Kur</span>
           </button>
 
           <!-- GPS Button -->
-          <button id="gpsBtn" onclick="locateUserGPS()" class="app-input hover:border-sky-500 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition" title="GPS ile Konumumu Bul">
+          <button type="button" id="gpsBtn" onclick="locateUserGPS()" class="app-input hover:border-sky-500 px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition" title="GPS ile Konumumu Bul">
             <i data-lucide="locate-fixed" class="w-3.5 h-3.5 text-sky-500"></i>
             <span class="hidden sm:inline">Konumum</span>
           </button>
 
           <!-- Refresh -->
-          <button onclick="refreshAll()" class="app-input hover:border-sky-500 p-1.5 rounded-lg transition" title="Verileri Yenile" aria-label="Verileri Yenile">
+          <button type="button" onclick="refreshAll()" class="app-input hover:border-sky-500 p-1.5 rounded-xl transition" title="Verileri Yenile" aria-label="Verileri Yenile">
             <i data-lucide="refresh-cw" class="w-4 h-4 text-sec"></i>
           </button>
 
           <!-- Two-state Dark/Light Theme Toggle -->
-          <button id="themeToggleBtn" onclick="toggleColorScheme()" class="app-input hover:border-sky-500 p-1.5 rounded-lg transition" title="Açık / Koyu Tema Değiştir">
+          <button type="button" id="themeToggleBtn" onclick="toggleColorScheme()" class="app-input hover:border-sky-500 p-1.5 rounded-xl transition" title="Açık / Koyu Tema Değiştir">
             <span class="theme-icon-sun items-center">
               <i data-lucide="sun" class="w-4 h-4 text-amber-400"></i>
               <span class="sr-only">Aydınlık temaya geç</span>
@@ -183,40 +265,6 @@
               <span class="sr-only">Koyu temaya geç</span>
             </span>
           </button>
-        </div>
-      </div>
-
-      <!-- Second Row: Location Picker + Quick Search -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div class="relative">
-          <input
-            type="search"
-            id="quickLocationSearch"
-            list="allLocationsDatalist"
-            placeholder="İl veya ilçe ara (örn: Kadıköy, Çankaya)..."
-            onchange="handleQuickSearch(this.value)"
-            class="app-input w-full text-xs sm:text-sm rounded-xl pl-9 pr-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-          >
-          <i data-lucide="search" class="w-4 h-4 text-mut absolute left-3 top-2.5 pointer-events-none"></i>
-          <datalist id="allLocationsDatalist"></datalist>
-        </div>
-
-        <div class="relative">
-          <label for="provinceSelect" class="sr-only">İl Seçin</label>
-          <select id="provinceSelect" onchange="onProvinceChange(this.value)" class="app-input w-full appearance-none text-xs sm:text-sm rounded-xl pl-9 pr-8 py-2 font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer">
-            <option value="İstanbul">34 - İstanbul</option>
-          </select>
-          <i data-lucide="map" class="w-4 h-4 text-sky-500 absolute left-3 top-2.5 pointer-events-none"></i>
-          <i data-lucide="chevron-down" class="w-4 h-4 text-mut absolute right-2.5 top-2.5 pointer-events-none"></i>
-        </div>
-
-        <div class="relative">
-          <label for="districtSelect" class="sr-only">İlçe Seçin</label>
-          <select id="districtSelect" onchange="onDistrictChange(this.value)" class="app-input w-full appearance-none text-xs sm:text-sm rounded-xl pl-9 pr-8 py-2 font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer">
-            <option value="__MERKEZ__">İl Merkezi</option>
-          </select>
-          <i data-lucide="map-pin" class="w-4 h-4 text-emerald-500 absolute left-3 top-2.5 pointer-events-none"></i>
-          <i data-lucide="chevron-down" class="w-4 h-4 text-mut absolute right-2.5 top-2.5 pointer-events-none"></i>
         </div>
       </div>
 
@@ -230,29 +278,62 @@
     </div>
   </header>
 
-  <!-- GPS Status Toast -->
+  <!-- Native Modal Search Dialog -->
+  <dialog id="locationSearchDialog" closedby="any" aria-labelledby="searchDialogTitle" class="card rounded-3xl p-0 w-[min(92vw,540px)] max-h-[82vh] m-auto border border-slate-500/20 shadow-2xl overflow-hidden">
+    <div class="p-4 sm:p-5 border-b border-slate-500/15 flex items-center justify-between gap-3">
+      <h1 id="searchDialogTitle" class="text-sm sm:text-base font-bold flex items-center gap-2">
+        <i data-lucide="search" class="w-4 h-4 text-sky-500"></i>
+        İl veya İlçe Seçin
+      </h1>
+      <form method="dialog">
+        <button type="submit" aria-label="Kapat" class="p-1.5 rounded-lg hover:bg-slate-500/15 text-sec transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+
+    <div class="p-4 border-b border-slate-500/15">
+      <div class="relative">
+        <input
+          type="search"
+          id="liveSearchInput"
+          autofocus
+          autocomplete="off"
+          placeholder="Şehir veya ilçe yazın (örn: Niğde, Kadıköy, Bodrum)..."
+          oninput="renderSearchResults(this.value)"
+          onkeydown="handleSearchKeydown(event)"
+          class="app-input w-full text-sm rounded-2xl pl-10 pr-4 py-2.5 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+        >
+        <i data-lucide="search" class="w-4 h-4 text-mut absolute left-3.5 top-3 pointer-events-none"></i>
+      </div>
+    </div>
+
+    <div id="searchResultsList" class="flex-1 overflow-y-auto p-3 space-y-1 max-h-[55vh]"></div>
+  </dialog>
+
+  <!-- Toast Notice -->
   <div id="toastNotice" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-slate-900 text-white text-xs font-medium shadow-xl border border-white/10"></div>
 
   <!-- Main Content -->
   <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
 
-    <!-- 1. DYNAMIC ATMOSPHERIC HERO CARD -->
+    <!-- 1. DYNAMIC LANDMARK + ATMOSPHERIC HERO CARD -->
     <section id="heroCard" data-atmosphere="sunny" class="hero-card rounded-3xl p-6 sm:p-7 shadow-xl">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div id="heroLandmarkLayer" class="hero-landmark"></div>
+      <div class="hero-scrim"></div>
+      <canvas id="heroWeatherCanvas" class="hero-canvas"></canvas>
+
+      <div class="hero-content flex flex-col md:flex-row md:items-center justify-between gap-6">
         <!-- Left: Location + Big Temp -->
         <div class="space-y-3">
           <div class="flex items-center flex-wrap gap-2">
-            <span id="heroLocationName" class="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-1.5">
+            <span id="heroLocationName" class="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-1.5 drop-shadow">
               <i data-lucide="map-pin" class="w-5 h-5 opacity-90"></i> İstanbul / İl Merkezi
             </span>
-            <button id="favToggleBtn" onclick="toggleFavoriteCurrent()" class="px-2.5 py-1 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur text-xs font-medium flex items-center gap-1 transition" title="Favorilere Ekle / Çıkar">
+            <button type="button" id="favToggleBtn" onclick="toggleFavoriteCurrent()" class="px-2.5 py-1 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur text-xs font-medium flex items-center gap-1 transition" title="Favorilere Ekle / Çıkar">
               <i id="favToggleIcon" data-lucide="star" class="w-3.5 h-3.5"></i>
               <span id="favToggleText">Favorile</span>
             </button>
-            <span id="wnLiveBadge" class="hidden px-2.5 py-1 rounded-full bg-emerald-400/25 border border-emerald-200/40 backdrop-blur text-[11px] font-bold items-center gap-1">
-              <i data-lucide="sparkles" class="w-3 h-3"></i>
-              <span id="wnLiveBadgeText">Google WeatherNext AI</span>
-            </span>
           </div>
 
           <div class="flex items-center gap-4">
@@ -261,38 +342,44 @@
             </div>
             <div>
               <div class="flex items-baseline gap-2">
-                <span id="heroTemp" class="text-5xl sm:text-6xl font-extrabold tracking-tight leading-none">--°</span>
-                <span id="heroFeelsLike" class="text-sm sm:text-base font-medium text-white/85">Hissedilen --°</span>
+                <span id="heroTemp" class="text-5xl sm:text-6xl font-extrabold tracking-tight leading-none drop-shadow">--°</span>
+                <span id="heroFeelsLike" class="text-sm sm:text-base font-medium text-white/90">Hissedilen --°</span>
               </div>
-              <p id="heroCondition" class="text-base sm:text-lg font-semibold text-white/95 mt-1">Yükleniyor...</p>
-              <p id="heroHighLow" class="text-xs sm:text-sm text-white/80 mt-0.5">En Yüksek: --° • En Düşük: --°</p>
+              <p id="heroCondition" class="text-base sm:text-lg font-semibold text-white mt-1 drop-shadow-sm">Yükleniyor...</p>
+              <p id="heroHighLow" class="text-xs sm:text-sm text-white/85 mt-0.5">En Yüksek: --° • En Düşük: --°</p>
             </div>
           </div>
         </div>
 
         <!-- Right: 4 Key Daily Metrics -->
-        <div class="grid grid-cols-2 gap-2.5 sm:gap-3 md:w-80">
-          <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
-            <span class="text-[11px] text-white/80 flex items-center gap-1"><i data-lucide="wind" class="w-3.5 h-3.5"></i> Rüzgar</span>
-            <div id="heroWind" class="text-sm sm:text-base font-bold mt-0.5">-- km/s</div>
+        <div class="flex flex-col gap-2 md:w-80">
+          <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
+              <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="wind" class="w-3.5 h-3.5"></i> Rüzgar</span>
+              <div id="heroWind" class="text-sm sm:text-base font-bold mt-0.5">-- km/s</div>
+            </div>
+            <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
+              <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="droplets" class="w-3.5 h-3.5"></i> Nem</span>
+              <div id="heroHumidity" class="text-sm sm:text-base font-bold mt-0.5">%--</div>
+            </div>
+            <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
+              <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="sun-medium" class="w-3.5 h-3.5"></i> UV İndeksi</span>
+              <div id="heroUV" class="text-sm sm:text-base font-bold mt-0.5">--</div>
+            </div>
+            <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
+              <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="sunrise" class="w-3.5 h-3.5"></i> Gün Doğumu / Batımı</span>
+              <div id="heroSunTimes" class="text-xs sm:text-sm font-bold mt-0.5">--:-- / --:--</div>
+            </div>
           </div>
-          <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
-            <span class="text-[11px] text-white/80 flex items-center gap-1"><i data-lucide="droplets" class="w-3.5 h-3.5"></i> Nem</span>
-            <div id="heroHumidity" class="text-sm sm:text-base font-bold mt-0.5">%--</div>
-          </div>
-          <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
-            <span class="text-[11px] text-white/80 flex items-center gap-1"><i data-lucide="sun-medium" class="w-3.5 h-3.5"></i> UV İndeksi</span>
-            <div id="heroUV" class="text-sm sm:text-base font-bold mt-0.5">--</div>
-          </div>
-          <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
-            <span class="text-[11px] text-white/80 flex items-center gap-1"><i data-lucide="sunrise" class="w-3.5 h-3.5"></i> Gün Doğumu / Batımı</span>
-            <div id="heroSunTimes" class="text-xs sm:text-sm font-bold mt-0.5">--:-- / --:--</div>
+          <div id="heroLandmarkCaption" class="hidden text-[11px] text-white/80 text-right flex items-center justify-end gap-1 pt-0.5">
+            <i data-lucide="camera" class="w-3 h-3"></i>
+            <span id="heroLandmarkName"></span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- 1B. GOOGLE WEATHERNEXT AI — ÇOKLU SENARYO (P10 - P90) KARTI (Canlı WeatherNext bağlıyken görünür) -->
+    <!-- 1B. GOOGLE WEATHERNEXT AI — ÇOKLU SENARYO (P10 - P90) KARTI -->
     <section id="weathernextCard" class="hidden card rounded-3xl p-5 sm:p-6 space-y-4 border-l-4 border-l-indigo-500">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
@@ -309,7 +396,7 @@
       <div id="wnStepsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5"></div>
     </section>
 
-    <!-- 2. GÜN İÇİNDE YAĞIŞ BEKLENEN SAATLER (ÖZEL ÖNE ÇIKAN KART) -->
+    <!-- 2. GÜN İÇİNDE YAĞIŞ BEKLENEN SAATLER -->
     <section class="card rounded-3xl p-5 sm:p-6 space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
@@ -324,10 +411,8 @@
         </span>
       </div>
 
-      <!-- Expected Rain Hour Pills -->
       <div id="rainHoursContainer" class="flex flex-wrap gap-2"></div>
 
-      <!-- 24-Hour Rain Probability & mm Chart -->
       <div class="h-44 sm:h-52 w-full pt-1">
         <canvas id="rainChart"></canvas>
       </div>
@@ -360,9 +445,15 @@
           <div id="yesterdayTitle" class="text-lg font-bold leading-snug">--</div>
           <p id="yesterdayDesc" class="text-xs sm:text-sm text-sec mt-1.5 leading-relaxed">Dünkü verilerle karşılaştırılıyor...</p>
         </div>
-        <div class="sub-card rounded-2xl px-3.5 py-2.5 flex items-center justify-between text-xs">
-          <span class="text-sec">Dün aynı saat / Gün içi max</span>
-          <span id="yesterdayRefNums" class="font-bold">--° / --°</span>
+        <div class="sub-card rounded-2xl px-3.5 py-2.5 space-y-1.5 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-sec">Şu an / Dün aynı saat</span>
+            <span id="yesterdayNowRef" class="font-bold">--° / --°</span>
+          </div>
+          <div class="flex items-center justify-between border-t border-slate-500/15 pt-1.5">
+            <span class="text-sec">Bugün en yüksek / Dün en yüksek</span>
+            <span id="yesterdayMaxRef" class="font-bold">--° / --°</span>
+          </div>
         </div>
       </div>
 
@@ -379,7 +470,7 @@
           <div class="sub-card rounded-2xl p-3 space-y-1">
             <div class="text-[11px] font-bold text-sec flex items-center justify-between">
               <span>Sabah 07–09</span>
-              <i id="commuteMorningIcon" data-lucide="sunrise" class="w-3.5 h-3.5 text-amber-500"></i>
+              <i data-lucide="sunrise" class="w-3.5 h-3.5 text-amber-500"></i>
             </div>
             <div id="commuteMorningTemp" class="text-base font-extrabold">--°</div>
             <div id="commuteMorningNote" class="text-[11px] text-sec leading-tight">--</div>
@@ -387,7 +478,7 @@
           <div class="sub-card rounded-2xl p-3 space-y-1">
             <div class="text-[11px] font-bold text-sec flex items-center justify-between">
               <span>Akşam 17–20</span>
-              <i id="commuteEveningIcon" data-lucide="sunset" class="w-3.5 h-3.5 text-indigo-500"></i>
+              <i data-lucide="sunset" class="w-3.5 h-3.5 text-indigo-500"></i>
             </div>
             <div id="commuteEveningTemp" class="text-base font-extrabold">--°</div>
             <div id="commuteEveningNote" class="text-[11px] text-sec leading-tight">--</div>
@@ -419,18 +510,25 @@
       </div>
     </section>
 
-    <!-- 5. GÜNÜN 4 ZAMAN DİLİMİ + 7 GÜNLÜK TAHMİN -->
+    <!-- 5. 7 GÜNLÜK / 15 GÜNLÜK TAHMİN + BUGÜNÜN ZAMAN DİLİMLERİ -->
     <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-      <!-- 7-Day Forecast -->
       <div class="card rounded-3xl p-5 sm:p-6 lg:col-span-7 space-y-4">
-        <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
-          <i data-lucide="calendar-days" class="w-5 h-5 text-sky-500"></i>
-          7 Günlük Tahmin
-        </h2>
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
+              <i data-lucide="calendar-days" class="w-5 h-5 text-sky-500"></i>
+              <span id="forecastRangeTitle">7 Günlük Tahmin</span>
+            </h2>
+            <p id="forecastRangeSub" class="text-[11px] text-sec mt-0.5 hidden"></p>
+          </div>
+          <div class="inline-flex rounded-xl p-1 sub-card text-xs font-semibold">
+            <button type="button" id="btnRange7" onclick="setForecastRange(7)" class="px-3 py-1 rounded-lg bg-sky-500 text-white transition">7 Günlük</button>
+            <button type="button" id="btnRange15" onclick="setForecastRange(15)" class="px-3 py-1 rounded-lg text-sec hover:text-sky-500 transition">15 Günlük</button>
+          </div>
+        </div>
         <div id="sevenDayList" class="divide-y divide-slate-500/15"></div>
       </div>
 
-      <!-- 4 Dayparts Breakdown -->
       <div class="card rounded-3xl p-5 sm:p-6 lg:col-span-5 space-y-4">
         <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
           <i data-lucide="sun-moon" class="w-5 h-5 text-amber-500"></i>
@@ -448,7 +546,7 @@
             <i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500"></i>
             <span id="districtsSectionTitle">İstanbul</span> — Tüm İlçeler Anlık Hava Durumu
           </h2>
-          <p class="text-xs text-sec mt-0.5">Detaylı saatlik yağış ve 7 günlük tahmin için herhangi bir ilçeye dokunun.</p>
+          <p class="text-xs text-sec mt-0.5">Detaylı saatlik yağış ve 15 günlük tahmin için herhangi bir ilçeye dokunun.</p>
         </div>
         <input
           type="search"
@@ -464,20 +562,46 @@
   </main>
 
   <footer class="py-6 text-center text-xs text-sec">
-    Hava & Yaşam • Günlük Hava Durumu Asistanı
+    Hava Durumu
   </footer>
 
   <script>
     // --- STATE ---
     let allProvinces = [];
+    let searchIndex = [];
+    let searchHighlightedIdx = 0;
+    let currentSearchMatches = [];
     let currentProvince = null;
     let currentDistrict = null; // null means İl Merkezi
     let cachedDistrictCards = [];
     let rainChart = null;
     let deferredInstallPrompt = null;
+    let forecastRangeDays = 7;
+    let latestDailyPayload = null;
+    let latestTodayDailyIdx = 0;
+    let latestWeatherNext15d = null;
+    let heroAnimFrame = null;
+    let activeAtmosphere = 'sunny';
 
     const FAVORITES_KEY = 'hava_yasam_favorites_v1';
     const LAST_LOC_KEY = 'hava_yasam_last_loc_v1';
+
+    // --- TURKISH TEXT NORMALIZER FOR INSTANT SEARCH ---
+    function normalizeTr(str) {
+      return (str || '')
+        .replace(/İ/g, 'i')
+        .replace(/I/g, 'ı')
+        .toLowerCase()
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ı/g, 'i')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c')
+        .replace(/â/g, 'a')
+        .replace(/î/g, 'i')
+        .replace(/û/g, 'u');
+    }
 
     // --- WMO WEATHER CODE DICTIONARY (TR) ---
     function getWeatherMeta(code, isDay = 1) {
@@ -510,6 +634,148 @@
         99: { text: "Şiddetli Fırtına", icon: "cloud-lightning", atmo: "stormy" }
       };
       return map[code] || { text: "Parçalı Bulutlu", icon: "cloud", atmo: isDay ? "partly" : "night" };
+    }
+
+    // --- LIVE ATMOSPHERIC WEATHER CANVAS ON LANDMARK HERO ---
+    function startHeroWeatherEffect(atmo) {
+      activeAtmosphere = atmo;
+      const canvas = document.getElementById('heroWeatherCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      if (heroAnimFrame) {
+        cancelAnimationFrame(heroAnimFrame);
+        heroAnimFrame = null;
+      }
+
+      const resize = () => {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = Math.max(300, Math.floor(rect.width));
+        canvas.height = Math.max(180, Math.floor(rect.height));
+      };
+      resize();
+
+      const particles = [];
+      const count = (atmo === 'rainy' || atmo === 'stormy') ? 75 : (atmo === 'snowy' ? 50 : (atmo === 'night' ? 45 : (atmo === 'foggy' ? 14 : 18)));
+
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          len: 10 + Math.random() * 14,
+          r: 1.5 + Math.random() * 2.5,
+          speedY: (atmo === 'rainy' || atmo === 'stormy') ? (7 + Math.random() * 6) : (atmo === 'snowy' ? (0.7 + Math.random() * 1.4) : 0.15),
+          speedX: (atmo === 'rainy' || atmo === 'stormy') ? -1.4 : (atmo === 'foggy' ? (0.3 + Math.random() * 0.4) : (Math.random() - 0.5) * 0.5),
+          alpha: 0.2 + Math.random() * 0.55,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+
+      let lightningFlash = 0;
+
+      function tick() {
+        if (canvas.width !== canvas.parentElement.clientWidth && canvas.parentElement.clientWidth > 0) {
+          resize();
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (atmo === 'rainy' || atmo === 'stormy') {
+          ctx.strokeStyle = 'rgba(224, 242, 254, 0.45)';
+          ctx.lineWidth = 1.25;
+          particles.forEach(p => {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + p.speedX * 1.8, p.y + p.len);
+            ctx.stroke();
+            p.x += p.speedX;
+            p.y += p.speedY;
+            if (p.y > canvas.height) { p.y = -20; p.x = Math.random() * (canvas.width + 60); }
+          });
+          if (atmo === 'stormy') {
+            if (lightningFlash > 0) {
+              ctx.fillStyle = `rgba(255, 255, 255, ${lightningFlash * 0.25})`;
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              lightningFlash -= 0.08;
+            } else if (Math.random() < 0.004) {
+              lightningFlash = 1;
+            }
+          }
+        } else if (atmo === 'snowy') {
+          particles.forEach(p => {
+            p.phase += 0.03;
+            p.x += Math.sin(p.phase) * 0.45;
+            p.y += p.speedY;
+            ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fill();
+            if (p.y > canvas.height) { p.y = -10; p.x = Math.random() * canvas.width; }
+          });
+        } else if (atmo === 'night') {
+          particles.forEach(p => {
+            p.phase += 0.025;
+            const twinkle = 0.25 + 0.55 * Math.abs(Math.sin(p.phase));
+            ctx.fillStyle = `rgba(255, 255, 255, ${twinkle})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y * 0.65, p.r * 0.65, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        } else if (atmo === 'foggy') {
+          particles.forEach(p => {
+            p.x += p.speedX;
+            if (p.x > canvas.width + 120) p.x = -120;
+            const grad = ctx.createRadialGradient(p.x, p.y, 10, p.x, p.y, 130);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0.14)');
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 130, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        } else if (atmo === 'sunny') {
+          const grad = ctx.createRadialGradient(canvas.width * 0.88, canvas.height * 0.15, 8, canvas.width * 0.88, canvas.height * 0.15, 220);
+          grad.addColorStop(0, 'rgba(254, 240, 138, 0.28)');
+          grad.addColorStop(0.5, 'rgba(253, 224, 71, 0.08)');
+          grad.addColorStop(1, 'rgba(253, 224, 71, 0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          return; // static warm glow doesn't need continuous 60fps loop
+        } else {
+          return;
+        }
+
+        heroAnimFrame = requestAnimationFrame(tick);
+      }
+
+      tick();
+    }
+
+    async function updateHeroLandmark(provinceName, districtName) {
+      const layer = document.getElementById('heroLandmarkLayer');
+      const cap = document.getElementById('heroLandmarkCaption');
+      const nameEl = document.getElementById('heroLandmarkName');
+
+      layer.classList.remove('loaded');
+      cap.classList.add('hidden');
+
+      if (typeof fetchLandmarkPhoto !== 'function') return;
+      const expectedKey = `${provinceName}::${districtName || '__MERKEZ__'}`;
+      const photo = await fetchLandmarkPhoto(provinceName, districtName);
+
+      // Guard against stale async completion if user already switched location
+      const currentKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}`;
+      if (expectedKey !== currentKey || !photo) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const latestKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}`;
+        if (expectedKey !== latestKey) return;
+        layer.style.backgroundImage = `url("${photo.url}")`;
+        layer.classList.add('loaded');
+        nameEl.textContent = photo.label;
+        cap.classList.remove('hidden');
+      };
+      img.src = photo.url;
     }
 
     // --- THEME TOGGLE (Modern Web Guidance: dark-mode-toggle) ---
@@ -551,6 +817,158 @@
         if (rainChart) updateChartColors();
       }
     });
+
+    // --- NATIVE MODAL SEARCH DIALOG (Modern Web Guidance: dialog) ---
+    function openSearchDialog() {
+      const dialog = document.getElementById('locationSearchDialog');
+      const input = document.getElementById('liveSearchInput');
+      input.value = '';
+      renderSearchResults('');
+      dialog.showModal();
+      input.focus();
+    }
+
+    // Safari fallback for closedby="any"
+    (function setupDialogBackdropFallback() {
+      if (!('closedBy' in HTMLDialogElement.prototype)) {
+        const outside = (e, dialog) => {
+          const r = dialog.getBoundingClientRect();
+          return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+        };
+        const dialog = document.getElementById('locationSearchDialog');
+        let pressedOutside = false;
+        dialog.addEventListener('pointerdown', (e) => { pressedOutside = outside(e, dialog); });
+        dialog.addEventListener('pointerup', (e) => { if (pressedOutside && outside(e, dialog)) dialog.close(); });
+      }
+    })();
+
+    function buildSearchIndex() {
+      searchIndex = [];
+      allProvinces.forEach(p => {
+        searchIndex.push({
+          type: 'province',
+          province: p.name,
+          district: '__MERKEZ__',
+          title: `${p.name} (İl Merkezi)`,
+          subtitle: `Plaka ${String(p.plate).padStart(2, '0')} • ${p.districts.length} İlçe`,
+          norm: normalizeTr(`${p.name} ${p.plate}`)
+        });
+        p.districts.forEach(d => {
+          searchIndex.push({
+            type: 'district',
+            province: p.name,
+            district: d.name,
+            title: d.name,
+            subtitle: `${p.name} İlçesi`,
+            norm: normalizeTr(`${d.name} ${p.name}`)
+          });
+        });
+      });
+    }
+
+    function renderSearchResults(query) {
+      const container = document.getElementById('searchResultsList');
+      const qNorm = normalizeTr((query || '').trim());
+
+      if (!qNorm) {
+        const popular = ['İstanbul', 'Ankara', 'İzmir', 'Antalya', 'Bursa', 'Niğde', 'Trabzon', 'Muğla'];
+        const quickItems = [];
+        if (currentProvince) {
+          quickItems.push({
+            province: currentProvince.name,
+            district: '__MERKEZ__',
+            title: `${currentProvince.name} (İl Merkezi)`,
+            subtitle: 'Şu anki il merkezi'
+          });
+          currentProvince.districts.slice(0, 6).forEach(d => {
+            quickItems.push({
+              province: currentProvince.name,
+              district: d.name,
+              title: d.name,
+              subtitle: `${currentProvince.name} İlçesi`
+            });
+          });
+        }
+        popular.forEach(pn => {
+          if (currentProvince && pn === currentProvince.name) return;
+          const p = allProvinces.find(x => x.name === pn);
+          if (p) {
+            quickItems.push({
+              province: p.name,
+              district: '__MERKEZ__',
+              title: p.name,
+              subtitle: `Popüler Şehir • ${p.districts.length} İlçe`
+            });
+          }
+        });
+        currentSearchMatches = quickItems;
+      } else {
+        const starts = [];
+        const contains = [];
+        for (const item of searchIndex) {
+          if (item.norm.startsWith(qNorm)) starts.push(item);
+          else if (item.norm.includes(qNorm)) contains.push(item);
+          if (starts.length + contains.length >= 40) break;
+        }
+        currentSearchMatches = [...starts, ...contains].slice(0, 30);
+      }
+
+      searchHighlightedIdx = 0;
+      paintSearchMatches();
+    }
+
+    function paintSearchMatches() {
+      const container = document.getElementById('searchResultsList');
+      container.innerHTML = '';
+
+      if (currentSearchMatches.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-xs text-sec">Eşleşen il veya ilçe bulunamadı.</div>`;
+        return;
+      }
+
+      currentSearchMatches.forEach((item, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `w-full text-left px-3.5 py-2.5 rounded-2xl flex items-center justify-between gap-3 transition ${
+          idx === searchHighlightedIdx ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400' : 'hover:bg-slate-500/10'
+        }`;
+        btn.onclick = () => selectFromSearch(item);
+        btn.innerHTML = `
+          <div class="flex items-center gap-2.5 min-w-0">
+            <i data-lucide="${item.type === 'province' ? 'map' : 'map-pin'}" class="w-4 h-4 text-sky-500 shrink-0"></i>
+            <div class="min-w-0">
+              <div class="text-sm font-semibold truncate">${item.title}</div>
+              <div class="text-[11px] text-sec truncate">${item.subtitle}</div>
+            </div>
+          </div>
+          <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-mut shrink-0"></i>
+        `;
+        container.appendChild(btn);
+      });
+      lucide.createIcons();
+    }
+
+    function handleSearchKeydown(e) {
+      if (!currentSearchMatches.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        searchHighlightedIdx = (searchHighlightedIdx + 1) % currentSearchMatches.length;
+        paintSearchMatches();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        searchHighlightedIdx = (searchHighlightedIdx - 1 + currentSearchMatches.length) % currentSearchMatches.length;
+        paintSearchMatches();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        selectFromSearch(currentSearchMatches[searchHighlightedIdx]);
+      }
+    }
+
+    function selectFromSearch(item) {
+      if (!item) return;
+      document.getElementById('locationSearchDialog').close();
+      selectLocation(item.province, item.district);
+    }
 
     // --- PWA REGISTRATION & INSTALL ---
     if ('serviceWorker' in navigator) {
@@ -650,15 +1068,13 @@
       favs.forEach(f => {
         const isActive = f.key === activeKey;
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = `shrink-0 px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 transition border ${
           isActive
             ? 'bg-sky-500 text-white border-sky-500'
             : 'app-input hover:border-sky-500'
         }`;
-        btn.onclick = () => {
-          document.getElementById('provinceSelect').value = f.province;
-          onProvinceChange(f.province, f.district);
-        };
+        btn.onclick = () => selectLocation(f.province, f.district);
         btn.innerHTML = `
           <span>${f.label}</span>
           <span onclick="removeFavorite('${f.key.replace(/'/g, "\\'")}', event)" class="opacity-70 hover:opacity-100 ml-0.5 font-bold" title="Kaldır">×</span>
@@ -710,17 +1126,16 @@
             });
           });
           if (bestProv && bestDist) {
-            document.getElementById('provinceSelect').value = bestProv.name;
-            onProvinceChange(bestProv.name, bestDist.name);
+            selectLocation(bestProv.name, bestDist.name);
             showToast(`Konum bulundu: ${bestProv.name} / ${bestDist.name}`);
           }
         },
-        () => showToast('Konum izni alınamadı. İl/ilçe seçerek devam edebilirsiniz.'),
+        () => showToast('Konum izni alınamadı. Büyüteçle il/ilçe seçebilirsiniz.'),
         { enableHighAccuracy: false, timeout: 8000 }
       );
     }
 
-    // --- LOCATIONS INIT ---
+    // --- LOCATIONS INIT & SELECTION ---
     async function initLocations() {
       const urls = ['./turkey_locations.json', './static/turkey_locations.json', '/api/locations'];
       for (const u of urls) {
@@ -733,30 +1148,8 @@
         } catch {}
       }
 
-      const provSelect = document.getElementById('provinceSelect');
-      const datalist = document.getElementById('allLocationsDatalist');
-      provSelect.innerHTML = '';
-      datalist.innerHTML = '';
+      buildSearchIndex();
 
-      allProvinces.forEach(p => {
-        const plateStr = String(p.plate).padStart(2, '0');
-        const opt = document.createElement('option');
-        opt.value = p.name;
-        opt.textContent = `${plateStr} - ${p.name}`;
-        provSelect.appendChild(opt);
-
-        const dOptProv = document.createElement('option');
-        dOptProv.value = `${p.name} (İl Merkezi)`;
-        datalist.appendChild(dOptProv);
-
-        p.districts.forEach(d => {
-          const dOpt = document.createElement('option');
-          dOpt.value = `${d.name} (${p.name})`;
-          datalist.appendChild(dOpt);
-        });
-      });
-
-      // Restore last selected location or default to İstanbul
       let startProv = 'İstanbul', startDist = '__MERKEZ__';
       try {
         const saved = JSON.parse(localStorage.getItem(LAST_LOC_KEY) || 'null');
@@ -766,44 +1159,32 @@
         }
       } catch {}
 
-      provSelect.value = startProv;
-      onProvinceChange(startProv, startDist);
+      selectLocation(startProv, startDist);
       renderFavoritesBar();
     }
 
-    function onProvinceChange(provinceName, targetDistrictName = '__MERKEZ__') {
+    function selectLocation(provinceName, districtName = '__MERKEZ__') {
       const p = allProvinces.find(x => x.name === provinceName) || allProvinces[0];
       if (!p) return;
+
+      const provinceChanged = !currentProvince || currentProvince.name !== p.name;
       currentProvince = p;
 
-      const distSelect = document.getElementById('districtSelect');
-      distSelect.innerHTML = `<option value="__MERKEZ__">${p.name} - İl Merkezi</option>`;
-      p.districts.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.name;
-        opt.textContent = d.name;
-        if (d.name === targetDistrictName) opt.selected = true;
-        distSelect.appendChild(opt);
-      });
-
-      document.getElementById('districtsSectionTitle').textContent = p.name;
-      onDistrictChange(targetDistrictName);
-      loadProvinceDistrictsBatch(p);
-    }
-
-    function onDistrictChange(districtName) {
-      if (!currentProvince) return;
-      let lat = currentProvince.lat;
-      let lon = currentProvince.lon;
-      let displayLabel = `${currentProvince.name} / İl Merkezi`;
+      let lat = p.lat;
+      let lon = p.lon;
+      let displayLabel = `${p.name} / İl Merkezi`;
+      let distNameClean = '__MERKEZ__';
 
       if (districtName && districtName !== '__MERKEZ__') {
-        const d = currentProvince.districts.find(x => x.name === districtName);
+        const d = p.districts.find(x => x.name === districtName);
         if (d) {
           currentDistrict = d;
           lat = d.lat;
           lon = d.lon;
-          displayLabel = `${currentProvince.name} / ${d.name}`;
+          distNameClean = d.name;
+          displayLabel = `${p.name} / ${d.name}`;
+        } else {
+          currentDistrict = null;
         }
       } else {
         currentDistrict = null;
@@ -811,41 +1192,32 @@
 
       try {
         localStorage.setItem(LAST_LOC_KEY, JSON.stringify({
-          province: currentProvince.name,
-          district: currentDistrict ? currentDistrict.name : '__MERKEZ__'
+          province: p.name,
+          district: distNameClean
         }));
       } catch {}
 
+      document.getElementById('districtsSectionTitle').textContent = p.name;
       updateFavoriteButtonUI();
       renderFavoritesBar();
+      updateHeroLandmark(p.name, currentDistrict ? currentDistrict.name : null);
       loadForecast(lat, lon, displayLabel);
-    }
 
-    function handleQuickSearch(val) {
-      if (!val || !val.trim()) return;
-      const q = val.trim().toLowerCase();
-      for (const p of allProvinces) {
-        if (`${p.name} (il merkezi)`.toLowerCase() === q || p.name.toLowerCase() === q) {
-          document.getElementById('provinceSelect').value = p.name;
-          onProvinceChange(p.name, '__MERKEZ__');
-          document.getElementById('quickLocationSearch').value = '';
-          return;
-        }
-        for (const d of p.districts) {
-          if (`${d.name} (${p.name})`.toLowerCase() === q || d.name.toLowerCase() === q) {
-            document.getElementById('provinceSelect').value = p.name;
-            onProvinceChange(p.name, d.name);
-            document.getElementById('quickLocationSearch').value = '';
-            return;
-          }
-        }
+      if (provinceChanged) {
+        loadProvinceDistrictsBatch(p);
+      } else if (cachedDistrictCards.length > 0) {
+        renderDistrictCards(cachedDistrictCards);
       }
     }
 
     function refreshAll() {
-      const distVal = document.getElementById('districtSelect').value;
-      onDistrictChange(distVal);
-      if (currentProvince) loadProvinceDistrictsBatch(currentProvince);
+      if (!currentProvince) return;
+      const distName = currentDistrict ? currentDistrict.name : '__MERKEZ__';
+      const lat = currentDistrict ? currentDistrict.lat : currentProvince.lat;
+      const lon = currentDistrict ? currentDistrict.lon : currentProvince.lon;
+      const label = currentDistrict ? `${currentProvince.name} / ${currentDistrict.name}` : `${currentProvince.name} / İl Merkezi`;
+      loadForecast(lat, lon, label);
+      loadProvinceDistrictsBatch(currentProvince);
       showToast('Hava durumu güncellendi');
     }
 
@@ -865,10 +1237,8 @@
     async function loadWeatherNextOverlay(lat, lon) {
       const apiBase = getWeatherNextApiBase();
       const card = document.getElementById('weathernextCard');
-      const badge = document.getElementById('wnLiveBadge');
       if (!apiBase) {
         card.classList.add('hidden');
-        badge.classList.add('hidden');
         return;
       }
 
@@ -878,10 +1248,7 @@
         const wn = await resp.json();
         if (!wn || !wn.steps || wn.steps.length === 0) throw new Error('Empty WeatherNext payload');
 
-        badge.classList.remove('hidden');
-        badge.classList.add('inline-flex');
-        const prettyModel = wn.model.includes('3_0') ? 'WeatherNext 3 (0.1°)' : (wn.model.includes('2_0') ? 'WeatherNext 2' : wn.model);
-        document.getElementById('wnLiveBadgeText').textContent = `Google ${prettyModel}`;
+        const prettyModel = wn.model.includes('3_0') ? 'WeatherNext 3' : (wn.model.includes('2_0') ? 'WeatherNext 2' : wn.model);
         document.getElementById('wnModelChip').textContent = `${prettyModel} • Canlı`;
         document.getElementById('wnSubtitle').textContent = wn.has_percentiles
           ? 'Google DeepMind çoklu senaryo dağılımı: En serin (%10), Ortalama ve En sıcak/yağışlı (%90) olasılık aralığı'
@@ -919,15 +1286,32 @@
         lucide.createIcons();
       } catch {
         card.classList.add('hidden');
-        badge.classList.add('hidden');
       }
     }
 
-    // --- FETCH FORECAST (OPEN-METEO 7 DAYS + PAST 1 DAY + PRESSURE + DEW POINT + VISIBILITY) ---
+    async function loadWeatherNext15d(lat, lon) {
+      latestWeatherNext15d = null;
+      const apiBase = getWeatherNextApiBase();
+      if (!apiBase) return;
+      try {
+        const resp = await fetch(`${apiBase}/api/weathernext/extended15d?lat=${lat}&lon=${lon}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data && Array.isArray(data.days) && data.days.length >= 8) {
+          latestWeatherNext15d = data;
+          if (forecastRangeDays === 15) {
+            renderMultiDayForecast();
+          }
+        }
+      } catch {}
+    }
+
+    // --- FETCH FORECAST (16 DAYS + PAST 1 DAY + PRESSURE + DEW POINT + VISIBILITY) ---
     async function loadForecast(lat, lon, displayLabel) {
       loadWeatherNextOverlay(lat, lon);
+      loadWeatherNext15d(lat, lon);
       try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,dew_point_2m,pressure_msl,visibility,precipitation_probability,precipitation,rain,snowfall,wind_speed_10m,wind_gusts_10m,uv_index,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_gusts_10m,pressure_msl,weather_code&timezone=auto&past_days=1&forecast_days=7`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,dew_point_2m,pressure_msl,visibility,precipitation_probability,precipitation,rain,snowfall,wind_speed_10m,wind_gusts_10m,uv_index,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_gusts_10m,pressure_msl,weather_code&timezone=auto&past_days=1&forecast_days=16`;
         const resp = await fetch(url);
         const data = await resp.json();
         renderForecast(data, displayLabel);
@@ -944,11 +1328,28 @@
       return `${uv.toFixed(1)} (Çok Yüksek)`;
     }
 
-    function getTurkishDayName(dateStr, index) {
+    function getTurkishDayLabel(dateStr, index, compact = false) {
       if (index === 0) return 'Bugün';
       if (index === 1) return 'Yarın';
       const d = new Date(dateStr + 'T12:00:00');
+      if (compact) {
+        return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', weekday: 'short' });
+      }
       return d.toLocaleDateString('tr-TR', { weekday: 'long' });
+    }
+
+    function setForecastRange(days) {
+      forecastRangeDays = days;
+      const b7 = document.getElementById('btnRange7');
+      const b15 = document.getElementById('btnRange15');
+      if (days === 7) {
+        b7.className = 'px-3 py-1 rounded-lg bg-sky-500 text-white transition';
+        b15.className = 'px-3 py-1 rounded-lg text-sec hover:text-sky-500 transition';
+      } else {
+        b15.className = 'px-3 py-1 rounded-lg bg-sky-500 text-white transition';
+        b7.className = 'px-3 py-1 rounded-lg text-sec hover:text-sky-500 transition';
+      }
+      renderMultiDayForecast();
     }
 
     function renderForecast(data, displayLabel) {
@@ -956,7 +1357,6 @@
       const hourly = data.hourly || {};
       const daily = data.daily || {};
 
-      // Find current hour index in hourly array and today's index in daily array (past_days=1 shifts today to index 1)
       const curTimePrefix = (cur.time || '').slice(0, 13);
       const todayDateStr = (cur.time || '').slice(0, 10);
       let startIdx = (hourly.time || []).findIndex(t => t.startsWith(curTimePrefix));
@@ -966,9 +1366,11 @@
 
       const meta = getWeatherMeta(cur.weather_code ?? 0, cur.is_day ?? 1);
 
-      // 1. HERO CARD
+      // 1. HERO CARD + WEATHER CANVAS
       const heroCard = document.getElementById('heroCard');
       heroCard.setAttribute('data-atmosphere', meta.atmo);
+      startHeroWeatherEffect(meta.atmo);
+
       document.getElementById('heroLocationName').innerHTML = `<i data-lucide="map-pin" class="w-5 h-5 opacity-90"></i> ${displayLabel}`;
       document.getElementById('heroWeatherIcon').innerHTML = `<i data-lucide="${meta.icon}" class="w-10 h-10 sm:w-12 sm:h-12"></i>`;
       document.getElementById('heroTemp').textContent = `${Math.round(cur.temperature_2m ?? 0)}°`;
@@ -988,7 +1390,6 @@
       const sunset = (daily.sunset?.[todayDailyIdx] || '').split('T')[1]?.slice(0, 5) || '--:--';
       document.getElementById('heroSunTimes').textContent = `${sunrise} / ${sunset}`;
 
-      // Slice next 24h & 48h from current hour
       const next24 = [];
       for (let i = startIdx; i < Math.min(startIdx + 24, (hourly.time || []).length); i++) {
         next24.push({
@@ -1019,20 +1420,14 @@
         });
       }
 
-      // 2. GÜN İÇİNDE YAĞIŞ BEKLENEN SAATLER
       renderRainTimeline(next24);
-
-      // 3. 48 SAATLİK YATAY AKIŞ
       renderHourlyStrip(next48);
-
-      // 4. GÜNLÜK HAYAT KARTLARI (DÜNE GÖRE FARK, İŞE GİDİŞ-GELİŞ, BASINÇ & KONFOR)
       renderDailyInsights(cur, hourly, daily, startIdx, todayDailyIdx);
-
-      // 5. GÜNÜN 4 ZAMAN DİLİMİ
       renderDayparts(hourly, daily.time?.[todayDailyIdx]);
 
-      // 6. 7 GÜNLÜK TAHMİN
-      renderSevenDayForecast(daily, todayDailyIdx);
+      latestDailyPayload = daily;
+      latestTodayDailyIdx = todayDailyIdx;
+      renderMultiDayForecast();
 
       lucide.createIcons();
     }
@@ -1185,7 +1580,7 @@
     function renderDailyInsights(cur, hourly, daily, startIdx, todayDailyIdx) {
       const todayDateStr = daily.time?.[todayDailyIdx] || (cur.time || '').slice(0, 10);
 
-      // --- 1. DÜNE GÖRE SICAKLIK KARŞILAŞTIRMASI ---
+      // --- 1. DÜNE GÖRE SICAKLIK KARŞILAŞTIRMASI (ANLIK VS GÜN İÇİ MAX) ---
       const nowTemp = cur.temperature_2m ?? 15;
       const yestSameHourTemp = startIdx >= 24 ? hourly.temperature_2m?.[startIdx - 24] : null;
       const yestMax = todayDailyIdx > 0 ? daily.temperature_2m_max?.[todayDailyIdx - 1] : null;
@@ -1199,30 +1594,31 @@
       const yDescEl = document.getElementById('yesterdayDesc');
 
       if (deltaNow >= 2) {
-        badgeEl.textContent = `+${deltaNow}° Daha Sıcak`;
+        badgeEl.textContent = `Şu an +${deltaNow}°`;
         badgeEl.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400';
-        yTitleEl.textContent = `Düne göre ${deltaNow}° daha sıcak`;
-        yDescEl.textContent = deltaMax >= 2
-          ? `Gün genelinde de sıcaklık dünden yaklaşık ${deltaMax}° yukarıda seyredecek.`
-          : 'Şu an dün bu saatlere göre daha ılık bir hava hakim.';
+        yTitleEl.textContent = `Şu an dün bu saate göre ${deltaNow}° daha sıcak`;
       } else if (deltaNow <= -2) {
-        badgeEl.textContent = `${deltaNow}° Daha Serin`;
+        badgeEl.textContent = `Şu an ${deltaNow}°`;
         badgeEl.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400';
-        yTitleEl.textContent = `Düne göre ${Math.abs(deltaNow)}° daha serin`;
-        yDescEl.textContent = deltaMax <= -2
-          ? `Gün içi en yüksek sıcaklık da dünden ${Math.abs(deltaMax)}° daha düşük kalacak.`
-          : 'Şu an dün bu saatlere kıyasla belirgin bir serinleme var.';
+        yTitleEl.textContent = `Şu an dün bu saate göre ${Math.abs(deltaNow)}° daha serin`;
       } else {
-        badgeEl.textContent = 'Dünle Benzer';
+        badgeEl.textContent = 'Şu an Benzer';
         badgeEl.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
-        yTitleEl.textContent = 'Dünle neredeyse aynı sıcaklıkta';
-        yDescEl.textContent = Math.abs(deltaMax) >= 2
-          ? `Şu an benzer ancak gün ortasında düne göre ${deltaMax > 0 ? '+' + deltaMax : deltaMax}° fark oluşacak.`
-          : 'Sıcaklık seyri düne oldukça yakın ilerliyor, ani bir değişim yok.';
+        yTitleEl.textContent = 'Şu an dün bu saatle neredeyse aynı';
       }
 
-      document.getElementById('yesterdayRefNums').textContent =
-        `${yestSameHourTemp != null ? Math.round(yestSameHourTemp) + '°' : '--'} / ${yestMax != null ? Math.round(yestMax) + '°' : '--'}`;
+      if (deltaMax <= -2) {
+        yDescEl.textContent = `Bugünkü en yüksek sıcaklık da dün ulaşılan zirvenin ${Math.abs(deltaMax)}° altında kalacak.`;
+      } else if (deltaMax >= 2) {
+        yDescEl.textContent = `Bugünkü en yüksek sıcaklık dün ulaşılan zirvenin ${deltaMax}° üzerinde olacak.`;
+      } else {
+        yDescEl.textContent = 'Gün içi en yüksek sıcaklık da dünkü zirveye oldukça yakın.';
+      }
+
+      document.getElementById('yesterdayNowRef').textContent =
+        `${Math.round(nowTemp)}° / ${yestSameHourTemp != null ? Math.round(yestSameHourTemp) + '°' : '--'}`;
+      document.getElementById('yesterdayMaxRef').textContent =
+        `${Math.round(todayMax)}° / ${yestMax != null ? Math.round(yestMax) + '°' : '--'}`;
 
       // --- 2. İŞE GİDİŞ-GELİŞ ÖZETİ (SABAH 07-09 & AKŞAM 17-20) ---
       function summarizeWindow(targetHours) {
@@ -1287,7 +1683,7 @@
         cSummary.textContent = 'Sabah ve akşam saatlerinde görüş net, yol ve ulaşım koşulları elverişli.';
       }
 
-      // --- 3. BASINÇ & HİSSEDİLEN KONFOR (ÇİĞ NOKTASI & MİGREN ETKİSİ) ---
+      // --- 3. BASINÇ & HİSSEDİLEN KONFOR ---
       const pNow = cur.pressure_msl ?? hourly.pressure_msl?.[startIdx] ?? 1013;
       const pPast = startIdx >= 6 ? (hourly.pressure_msl?.[startIdx - 6] ?? pNow) : pNow;
       const pDelta = pNow - pPast;
@@ -1365,14 +1761,70 @@
       });
     }
 
-    function renderSevenDayForecast(daily, startDailyIdx = 0) {
+    function renderMultiDayForecast() {
       const list = document.getElementById('sevenDayList');
+      const titleEl = document.getElementById('forecastRangeTitle');
+      const subEl = document.getElementById('forecastRangeSub');
       list.innerHTML = '';
-      const dates = (daily.time || []).slice(startDailyIdx, startDailyIdx + 7);
-      const mins = (daily.temperature_2m_min || []).slice(startDailyIdx, startDailyIdx + 7);
-      const maxs = (daily.temperature_2m_max || []).slice(startDailyIdx, startDailyIdx + 7);
-      const codes = (daily.weather_code || []).slice(startDailyIdx, startDailyIdx + 7);
-      const probs = (daily.precipitation_probability_max || []).slice(startDailyIdx, startDailyIdx + 7);
+
+      titleEl.textContent = `${forecastRangeDays} Günlük Tahmin`;
+
+      // Use Google WeatherNext 2 15-day forecast when 15-day tab is active and available
+      if (forecastRangeDays === 15 && latestWeatherNext15d && latestWeatherNext15d.days?.length >= 8) {
+        const days = latestWeatherNext15d.days;
+        subEl.textContent = 'Google DeepMind WeatherNext 2 (0.25° orta vade modeli)';
+        subEl.classList.remove('hidden');
+
+        const mins = days.map(d => d.temp_min);
+        const maxs = days.map(d => d.temp_max);
+        const weekMin = Math.min(...mins);
+        const weekMax = Math.max(...maxs);
+        const weekSpan = Math.max(1, weekMax - weekMin);
+
+        days.forEach((d, idx) => {
+          const tMin = Math.round(d.temp_min);
+          const tMax = Math.round(d.temp_max);
+          const precip = d.precip_sum_mm ?? 0;
+          const icon = precip >= 5 ? 'cloud-rain-wind' : (precip >= 0.5 ? 'cloud-rain' : 'sun');
+          const desc = precip >= 5 ? `${precip.toFixed(1)} mm yağış` : (precip >= 0.5 ? `${precip.toFixed(1)} mm hafif yağış` : `${Math.round(d.wind_max_kmh || 0)} km/s rüzgar`);
+          const leftPct = ((d.temp_min - weekMin) / weekSpan) * 100;
+          const widthPct = Math.max(12, ((d.temp_max - d.temp_min) / weekSpan) * 100);
+
+          list.innerHTML += `
+            <div class="py-2.5 flex items-center justify-between gap-3 text-xs sm:text-sm">
+              <div class="w-28 sm:w-32 font-semibold truncate">${getTurkishDayLabel(d.date, idx, true)}</div>
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <i data-lucide="${icon}" class="w-4 h-4 text-sky-500 shrink-0"></i>
+                <span class="text-xs text-sec truncate hidden sm:inline">${desc}</span>
+              </div>
+              <div class="w-16 text-right text-xs font-semibold ${precip >= 0.5 ? 'text-sky-500' : 'text-mut'}">
+                ${precip >= 0.5 ? `${precip.toFixed(1)}mm` : '—'}
+              </div>
+              <div class="flex items-center gap-2 w-32 sm:w-40">
+                <span class="w-7 text-right text-sec font-medium">${tMin}°</span>
+                <div class="flex-1 h-1.5 rounded-full bg-slate-500/20 relative overflow-hidden">
+                  <div class="absolute top-0 bottom-0 rounded-full bg-gradient-to-r from-sky-400 to-amber-400" style="left:${leftPct}%; width:${widthPct}%"></div>
+                </div>
+                <span class="w-7 font-bold">${tMax}°</span>
+              </div>
+            </div>
+          `;
+        });
+        lucide.createIcons();
+        return;
+      }
+
+      subEl.classList.add('hidden');
+      if (!latestDailyPayload) return;
+
+      const daily = latestDailyPayload;
+      const count = forecastRangeDays;
+      const dates = (daily.time || []).slice(latestTodayDailyIdx, latestTodayDailyIdx + count);
+      const mins = (daily.temperature_2m_min || []).slice(latestTodayDailyIdx, latestTodayDailyIdx + count);
+      const maxs = (daily.temperature_2m_max || []).slice(latestTodayDailyIdx, latestTodayDailyIdx + count);
+      const codes = (daily.weather_code || []).slice(latestTodayDailyIdx, latestTodayDailyIdx + count);
+      const probs = (daily.precipitation_probability_max || []).slice(latestTodayDailyIdx, latestTodayDailyIdx + count);
+
       const weekMin = Math.min(...mins);
       const weekMax = Math.max(...maxs);
       const weekSpan = Math.max(1, weekMax - weekMin);
@@ -1386,8 +1838,8 @@
         const widthPct = Math.max(12, ((maxs[idx] - mins[idx]) / weekSpan) * 100);
 
         list.innerHTML += `
-          <div class="py-3 flex items-center justify-between gap-3 text-xs sm:text-sm">
-            <div class="w-24 sm:w-28 font-semibold truncate">${getTurkishDayName(dateStr, idx)}</div>
+          <div class="py-2.5 flex items-center justify-between gap-3 text-xs sm:text-sm">
+            <div class="w-28 sm:w-32 font-semibold truncate">${getTurkishDayLabel(dateStr, idx, count > 7)}</div>
             <div class="flex items-center gap-2 flex-1 min-w-0">
               <i data-lucide="${meta.icon}" class="w-5 h-5 text-sky-500 shrink-0"></i>
               <span class="text-xs text-sec truncate hidden sm:inline">${meta.text}</span>
@@ -1405,6 +1857,7 @@
           </div>
         `;
       });
+      lucide.createIcons();
     }
 
     // --- BATCH ALL DISTRICTS OF SELECTED PROVINCE ---
@@ -1446,10 +1899,10 @@
         const meta = getWeatherMeta(r.code, r.isDay);
         const isActive = r.name === activeDistName;
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = `sub-card rounded-2xl p-3.5 text-left transition hover:border-sky-500 flex flex-col justify-between gap-2 ${isActive ? 'ring-2 ring-sky-500' : ''}`;
         btn.onclick = () => {
-          document.getElementById('districtSelect').value = r.name;
-          onDistrictChange(r.name);
+          selectLocation(currentProvince.name, r.name);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         };
         btn.innerHTML = `
@@ -1469,12 +1922,12 @@
     }
 
     function filterDistrictCards(q) {
-      const term = (q || '').trim().toLowerCase();
+      const term = normalizeTr((q || '').trim());
       if (!term) {
         renderDistrictCards(cachedDistrictCards);
         return;
       }
-      renderDistrictCards(cachedDistrictCards.filter(r => r.name.toLowerCase().includes(term)));
+      renderDistrictCards(cachedDistrictCards.filter(r => normalizeTr(r.name).includes(term)));
     }
 
     // --- BOOT ---

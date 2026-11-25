@@ -9,12 +9,14 @@ logger = logging.getLogger("weathernext")
 
 # In-memory TTL caches
 _CACHE: Dict[Tuple[float, float, int], Tuple[float, Dict[str, Any]]] = {}
+_CACHE_15D: Dict[Tuple[float, float], Tuple[float, Dict[str, Any]]] = {}
 CACHE_TTL_SECONDS = 1800  # 30 minutes
 
 _LATEST_INIT_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 LATEST_INIT_TTL_SECONDS = 900  # 15 minutes
 
 WEATHERNEXT_3_COL = "projects/gcp-public-data-weathernext/assets/weathernext_3_0_0_0p1deg"
+WEATHERNEXT_2_COL = "projects/gcp-public-data-weathernext/assets/weathernext_2_0_0_mean"
 
 WN3_BANDS = [
     "temperature_2m_mean",
@@ -29,6 +31,13 @@ WN3_BANDS = [
     "wind_speed_10m_mean",
     "mean_sea_level_pressure_mean",
     "total_cloud_cover_mean",
+]
+
+WN2_BANDS = [
+    "2m_temperature",
+    "total_precipitation_6hr",
+    "10m_wind_speed",
+    "mean_sea_level_pressure",
 ]
 
 
@@ -87,20 +96,20 @@ class WeatherNextClient:
             logger.warning("Earth Engine initialization failed: %s", e)
             return False
 
-    def _get_recent_window(self) -> Tuple[str, str]:
+    def _get_recent_window(self, lookback_hours: int = 36) -> Tuple[str, str]:
         now = datetime.now(timezone.utc)
-        start = (now - timedelta(hours=36)).strftime("%Y-%m-%dT%H:%M:%S")
+        start = (now - timedelta(hours=lookback_hours)).strftime("%Y-%m-%dT%H:%M:%S")
         end = (now + timedelta(hours=12)).strftime("%Y-%m-%dT%H:%M:%S")
         return start, end
 
-    def _get_latest_init_info(self, col_id: str) -> Optional[Dict[str, Any]]:
+    def _get_latest_init_info(self, col_id: str, lookback_hours: int = 36) -> Optional[Dict[str, Any]]:
         now_ts = time.time()
         cached = _LATEST_INIT_CACHE.get(col_id)
         if cached and cached[0] > now_ts:
             return cached[1]
 
         import ee
-        start, end = self._get_recent_window()
+        start, end = self._get_recent_window(lookback_hours=lookback_hours)
         recent_ic = ee.ImageCollection(col_id).filterDate(start, end)
         latest = recent_ic.sort("start_time", False).first().getInfo()
         if not latest:
@@ -113,7 +122,7 @@ class WeatherNextClient:
             "model": col_id.split("/")[-1],
             "latest_init_time": props.get("start_time"),
             "bands_count": len(bands),
-            "sample_bands": [b for b in bands if b.endswith("_mean")][:12],
+            "sample_bands": [b for b in bands if b.endswith("_mean")][:12] or bands[:12],
         }
         _LATEST_INIT_CACHE[col_id] = (now_ts + LATEST_INIT_TTL_SECONDS, info)
         return info
@@ -261,4 +270,114 @@ class WeatherNextClient:
         except Exception as e:
             self.last_error = str(e)
             logger.exception("WeatherNext 3 query failed: %s", e)
+            return None
+
+    def get_extended_15d_forecast(self, lat: float, lon: float) -> Optional[Dict[str, Any]]:
+        """
+        Fetches Google DeepMind WeatherNext 2 (weathernext_2_0_0_mean, 0.25deg, 6-hourly up to 360h = 15 days)
+        and aggregates steps into daily min/max temperature, precipitation sum, max wind, and avg pressure
+        using Europe/Istanbul (UTC+3) calendar days.
+        """
+        cache_key = (round(lat, 2), round(lon, 2))
+        now_ts = time.time()
+        cached = _CACHE_15D.get(cache_key)
+        if cached and cached[0] > now_ts:
+            return cached[1]
+
+        if not self.init_earth_engine():
+            return None
+
+        import ee
+
+        col_id = WEATHERNEXT_2_COL
+        try:
+            init_info = self._get_latest_init_info(col_id, lookback_hours=48)
+            if not init_info or not init_info.get("latest_init_time"):
+                self.last_error = "Güncel WeatherNext 2 koşusu bulunamadı."
+                return None
+
+            latest_init = init_info["latest_init_time"]
+            start, end = self._get_recent_window(lookback_hours=48)
+            recent_ic = ee.ImageCollection(col_id).filterDate(start, end)
+            run_ic = recent_ic.filter(ee.Filter.eq("start_time", latest_init)).select(WN2_BANDS)
+
+            point = ee.Geometry.Point([lon, lat])
+            raw_table = run_ic.getRegion(point, 27000).getInfo()
+            if not raw_table or len(raw_table) < 2:
+                self.last_error = "Seçili koordinat için 15 günlük veri dönmedi."
+                return None
+
+            header = raw_table[0]
+            col_idx = {name: idx for idx, name in enumerate(header)}
+
+            def get_num(row, key: str) -> Optional[float]:
+                idx = col_idx.get(key)
+                if idx is None or row[idx] is None:
+                    return None
+                return float(row[idx])
+
+            tr_tz = timezone(timedelta(hours=3))
+            buckets: Dict[str, Dict[str, Any]] = {}
+
+            for row in raw_table[1:]:
+                img_id = str(row[col_idx["id"]])
+                t_ms_fallback = int(row[col_idx["time"]] or 0)
+                dt_valid_utc, _ = self._parse_valid_time_from_id(img_id, t_ms_fallback)
+                date_tr = dt_valid_utc.astimezone(tr_tz).strftime("%Y-%m-%d")
+
+                temp_c = self._kelvin_to_c(get_num(row, "2m_temperature"))
+                precip_mm = self._precip_to_mm(get_num(row, "total_precipitation_6hr"))
+                ws_ms = get_num(row, "10m_wind_speed")
+                wind_kmh = round(ws_ms * 3.6, 1) if ws_ms is not None else None
+                p_pa = get_num(row, "mean_sea_level_pressure")
+                p_hpa = round(p_pa / 100.0, 1) if p_pa is not None else None
+
+                if date_tr not in buckets:
+                    buckets[date_tr] = {
+                        "date": date_tr,
+                        "temps": [],
+                        "precip_sum_mm": 0.0,
+                        "winds": [],
+                        "pressures": [],
+                    }
+                b = buckets[date_tr]
+                if temp_c is not None:
+                    b["temps"].append(temp_c)
+                b["precip_sum_mm"] += precip_mm
+                if wind_kmh is not None:
+                    b["winds"].append(wind_kmh)
+                if p_hpa is not None:
+                    b["pressures"].append(p_hpa)
+
+            days = []
+            for date_str in sorted(buckets.keys()):
+                b = buckets[date_str]
+                if not b["temps"]:
+                    continue
+                days.append({
+                    "date": date_str,
+                    "temp_min": round(min(b["temps"]), 1),
+                    "temp_max": round(max(b["temps"]), 1),
+                    "precip_sum_mm": round(b["precip_sum_mm"], 1),
+                    "wind_max_kmh": round(max(b["winds"]), 1) if b["winds"] else None,
+                    "pressure_avg_hpa": round(sum(b["pressures"]) / len(b["pressures"]), 1) if b["pressures"] else None,
+                })
+
+            days = days[:15]
+            result = {
+                "source": "google_weathernext_2",
+                "model": col_id.split("/")[-1],
+                "collection": col_id,
+                "init_time": latest_init,
+                "lat": lat,
+                "lon": lon,
+                "days_count": len(days),
+                "days": days,
+            }
+
+            _CACHE_15D[cache_key] = (now_ts + CACHE_TTL_SECONDS, result)
+            return result
+        except Exception as e:
+            self.last_error = str(e)
+            logger.exception("WeatherNext 2 15-day query failed: %s", e)
             return None

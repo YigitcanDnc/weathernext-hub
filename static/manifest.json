@@ -1,7 +1,7 @@
 {
-  "name": "Hava & Yaşam — Günlük Hava Durumu",
-  "short_name": "Hava & Yaşam",
-  "description": "Saatlik yağış takibi, 7 günlük tahmin, işe gidiş-geliş özeti ve günlük hava durumu asistanı.",
+  "name": "Hava Durumu",
+  "short_name": "Hava Durumu",
+  "description": "Saatlik yağış takibi, 15 günlük tahmin ve günlük hava durumu.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
