@@ -120,56 +120,35 @@
       background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
     }
 
-    /* Landmark AI 3D diorama background layer + weather-matched color grading */
-    .hero-card {
-      min-height: 260px;
-    }
-    @media (min-width: 640px) {
-      .hero-card { min-height: 300px; }
-    }
-    .hero-landmark {
-      position: absolute;
-      inset: 0;
-      background-size: cover;
-      background-position: center;
+    /* Option A: Unobstructed 1:1 3D Isometric Diorama Showcase */
+    .hero-diorama-img {
       opacity: 0;
-      transform: scale(1.03);
-      transition: opacity 0.7s ease, filter 0.6s ease, transform 1.2s ease;
-      pointer-events: none;
-      z-index: 0;
+      transform: scale(0.97);
+      transition: opacity 0.6s ease, filter 0.6s ease, transform 0.8s ease;
+      -webkit-mask-image: radial-gradient(ellipse 68% 68% at 50% 50%, #000 62%, transparent 98%);
+      mask-image: radial-gradient(ellipse 68% 68% at 50% 50%, #000 62%, transparent 98%);
     }
-    @media (min-width: 768px) {
-      .hero-landmark { background-position: right center; }
-    }
-    .hero-landmark.loaded {
-      opacity: 0.96;
+    .hero-diorama-img.loaded {
+      opacity: 1;
       transform: scale(1);
     }
-    .hero-landmark.static-tint[data-atmo-tint="cloudy"] {
-      filter: saturate(0.72) brightness(0.88);
+    .hero-diorama-img.static-tint[data-atmo-tint="cloudy"] {
+      filter: saturate(0.75) brightness(0.92);
     }
-    .hero-landmark.static-tint[data-atmo-tint="rainy"] {
-      filter: saturate(0.65) brightness(0.78) hue-rotate(8deg);
+    .hero-diorama-img.static-tint[data-atmo-tint="rainy"] {
+      filter: saturate(0.68) brightness(0.84) hue-rotate(6deg);
     }
-    .hero-landmark.static-tint[data-atmo-tint="stormy"] {
-      filter: saturate(0.55) brightness(0.64) contrast(1.12);
+    .hero-diorama-img.static-tint[data-atmo-tint="stormy"] {
+      filter: saturate(0.6) brightness(0.74) contrast(1.08);
     }
-    .hero-landmark.static-tint[data-atmo-tint="snowy"] {
-      filter: saturate(0.78) brightness(1.04) contrast(0.96);
+    .hero-diorama-img.static-tint[data-atmo-tint="snowy"] {
+      filter: saturate(0.82) brightness(1.04) contrast(0.97);
     }
-    .hero-landmark.static-tint[data-atmo-tint="foggy"] {
-      filter: saturate(0.55) brightness(0.94) blur(1px);
+    .hero-diorama-img.static-tint[data-atmo-tint="foggy"] {
+      filter: saturate(0.6) brightness(0.95) blur(0.6px);
     }
-    .hero-landmark.static-tint[data-atmo-tint="night"] {
-      filter: saturate(0.7) brightness(0.55) contrast(1.1);
-    }
-
-    .hero-scrim {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(95deg, rgba(15, 23, 42, 0.78) 0%, rgba(15, 23, 42, 0.44) 46%, rgba(15, 23, 42, 0.12) 74%, rgba(15, 23, 42, 0.36) 100%);
-      pointer-events: none;
-      z-index: 1;
+    .hero-diorama-img.static-tint[data-atmo-tint="night"] {
+      filter: saturate(0.72) brightness(0.65) contrast(1.08);
     }
 
     .hero-canvas {
@@ -178,12 +157,12 @@
       width: 100%;
       height: 100%;
       pointer-events: none;
-      z-index: 2;
+      z-index: 1;
     }
 
     .hero-content {
       position: relative;
-      z-index: 3;
+      z-index: 2;
     }
 
     /* Native Modal Search Dialog (Modern Web Guidance: dialog) */
@@ -320,63 +299,68 @@
   <!-- Main Content -->
   <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
 
-    <!-- 1. DYNAMIC LANDMARK + ATMOSPHERIC HERO CARD -->
-    <section id="heroCard" data-atmosphere="sunny" class="hero-card rounded-3xl p-6 sm:p-7 shadow-xl">
-      <div id="heroLandmarkLayer" class="hero-landmark"></div>
-      <div class="hero-scrim"></div>
+    <!-- 1. OPTION A HERO CARD: LEFT WEATHER INFO + RIGHT UNOBSTRUCTED 1:1 3D DIORAMA + BOTTOM 4-METRIC STRIP -->
+    <section id="heroCard" data-atmosphere="sunny" class="hero-card rounded-3xl p-5 sm:p-7 shadow-xl">
       <canvas id="heroWeatherCanvas" class="hero-canvas"></canvas>
 
-      <div class="hero-content flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <!-- Left: Location + Big Temp -->
-        <div class="space-y-3">
-          <div class="flex items-center flex-wrap gap-2">
-            <span id="heroLocationName" class="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-1.5 drop-shadow">
-              <i data-lucide="map-pin" class="w-5 h-5 opacity-90"></i> İstanbul / İl Merkezi
-            </span>
-            <button type="button" id="favToggleBtn" onclick="toggleFavoriteCurrent()" class="px-2.5 py-1 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur text-xs font-medium flex items-center gap-1 transition" title="Favorilere Ekle / Çıkar">
-              <i id="favToggleIcon" data-lucide="star" class="w-3.5 h-3.5"></i>
-              <span id="favToggleText">Favorile</span>
-            </button>
+      <div class="hero-content space-y-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-8">
+          <!-- Left: Location + Big Temp -->
+          <div class="space-y-3 md:flex-1">
+            <div class="flex items-center flex-wrap gap-2">
+              <span id="heroLocationName" class="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-1.5 drop-shadow">
+                <i data-lucide="map-pin" class="w-5 h-5 opacity-90"></i> İstanbul / İl Merkezi
+              </span>
+              <button type="button" id="favToggleBtn" onclick="toggleFavoriteCurrent()" class="px-2.5 py-1 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur text-xs font-medium flex items-center gap-1 transition" title="Favorilere Ekle / Çıkar">
+                <i id="favToggleIcon" data-lucide="star" class="w-3.5 h-3.5"></i>
+                <span id="favToggleText">Favorile</span>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-4">
+              <div id="heroWeatherIcon" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
+                <i data-lucide="sun" class="w-10 h-10 sm:w-12 sm:h-12"></i>
+              </div>
+              <div>
+                <div class="flex items-baseline gap-2">
+                  <span id="heroTemp" class="text-5xl sm:text-6xl font-extrabold tracking-tight leading-none drop-shadow">--°</span>
+                  <span id="heroFeelsLike" class="text-sm sm:text-base font-medium text-white/90">Hissedilen --°</span>
+                </div>
+                <p id="heroCondition" class="text-base sm:text-lg font-semibold text-white mt-1 drop-shadow-sm">Yükleniyor...</p>
+                <p id="heroHighLow" class="text-xs sm:text-sm text-white/85 mt-0.5">En Yüksek: --° • En Düşük: --°</p>
+              </div>
+            </div>
           </div>
 
-          <div class="flex items-center gap-4">
-            <div id="heroWeatherIcon" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
-              <i data-lucide="sun" class="w-10 h-10 sm:w-12 sm:h-12"></i>
+          <!-- Right / Mobile Middle: Dedicated Unobstructed 1:1 3D Diorama Stage -->
+          <div id="heroDioramaStage" class="hidden flex-col items-center justify-center shrink-0 self-center md:self-auto">
+            <div class="w-64 h-64 sm:w-72 sm:h-72 md:w-[270px] md:h-[270px] lg:w-[300px] lg:h-[300px] flex items-center justify-center">
+              <img id="heroDioramaImg" class="hero-diorama-img w-full h-full object-contain select-none pointer-events-none" alt="">
             </div>
-            <div>
-              <div class="flex items-baseline gap-2">
-                <span id="heroTemp" class="text-5xl sm:text-6xl font-extrabold tracking-tight leading-none drop-shadow">--°</span>
-                <span id="heroFeelsLike" class="text-sm sm:text-base font-medium text-white/90">Hissedilen --°</span>
-              </div>
-              <p id="heroCondition" class="text-base sm:text-lg font-semibold text-white mt-1 drop-shadow-sm">Yükleniyor...</p>
-              <p id="heroHighLow" class="text-xs sm:text-sm text-white/85 mt-0.5">En Yüksek: --° • En Düşük: --°</p>
+            <div id="heroLandmarkCaption" class="hidden text-[11px] text-white/85 flex items-center justify-center gap-1 -mt-2 drop-shadow">
+              <i data-lucide="sparkles" class="w-3 h-3"></i>
+              <span id="heroLandmarkName"></span>
             </div>
           </div>
         </div>
 
-        <!-- Right: 4 Key Daily Metrics -->
-        <div class="flex flex-col gap-2 md:w-80">
-          <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
-            <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
-              <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="wind" class="w-3.5 h-3.5"></i> Rüzgar</span>
-              <div id="heroWind" class="text-sm sm:text-base font-bold mt-0.5">-- km/s</div>
-            </div>
-            <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
-              <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="droplets" class="w-3.5 h-3.5"></i> Nem</span>
-              <div id="heroHumidity" class="text-sm sm:text-base font-bold mt-0.5">%--</div>
-            </div>
-            <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
-              <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="sun-medium" class="w-3.5 h-3.5"></i> UV İndeksi</span>
-              <div id="heroUV" class="text-sm sm:text-base font-bold mt-0.5">--</div>
-            </div>
-            <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-3">
-              <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="sunrise" class="w-3.5 h-3.5"></i> Gün Doğumu / Batımı</span>
-              <div id="heroSunTimes" class="text-xs sm:text-sm font-bold mt-0.5">--:-- / --:--</div>
-            </div>
+        <!-- Bottom Strip: 4 Key Daily Metrics (Zero overlap with diorama) -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pt-4 border-t border-white/15">
+          <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-2.5">
+            <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="wind" class="w-3.5 h-3.5"></i> Rüzgar</span>
+            <div id="heroWind" class="text-sm sm:text-base font-bold mt-0.5">-- km/s</div>
           </div>
-          <div id="heroLandmarkCaption" class="hidden text-[11px] text-white/85 text-right flex items-center justify-end gap-1 pt-0.5 drop-shadow">
-            <i data-lucide="sparkles" class="w-3 h-3"></i>
-            <span id="heroLandmarkName"></span>
+          <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-2.5">
+            <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="droplets" class="w-3.5 h-3.5"></i> Nem</span>
+            <div id="heroHumidity" class="text-sm sm:text-base font-bold mt-0.5">%--</div>
+          </div>
+          <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-2.5">
+            <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="sun-medium" class="w-3.5 h-3.5"></i> UV İndeksi</span>
+            <div id="heroUV" class="text-sm sm:text-base font-bold mt-0.5">--</div>
+          </div>
+          <div class="rounded-2xl bg-white/15 backdrop-blur px-3.5 py-2.5">
+            <span class="text-[11px] text-white/85 flex items-center gap-1"><i data-lucide="sunrise" class="w-3.5 h-3.5"></i> Gün Doğumu / Batımı</span>
+            <div id="heroSunTimes" class="text-xs sm:text-sm font-bold mt-0.5">--:-- / --:--</div>
           </div>
         </div>
       </div>
@@ -754,37 +738,55 @@
     }
 
     async function updateHeroLandmark(provinceName, districtName, atmosphere = 'partly') {
-      const layer = document.getElementById('heroLandmarkLayer');
+      const stage = document.getElementById('heroDioramaStage');
+      const imgEl = document.getElementById('heroDioramaImg');
       const cap = document.getElementById('heroLandmarkCaption');
       const nameEl = document.getElementById('heroLandmarkName');
 
-      layer.classList.remove('loaded', 'static-tint');
-      layer.removeAttribute('data-atmo-tint');
+      imgEl.classList.remove('loaded', 'static-tint');
+      imgEl.removeAttribute('data-atmo-tint');
       cap.classList.add('hidden');
 
-      if (typeof fetchAIDiorama !== 'function') return;
+      if (typeof fetchAIDiorama !== 'function') {
+        stage.classList.add('hidden');
+        stage.classList.remove('flex');
+        return;
+      }
+
       const expectedKey = `${provinceName}::${districtName || '__MERKEZ__'}::${atmosphere}`;
       const apiBase = typeof getWeatherNextApiBase === 'function' ? getWeatherNextApiBase() : '';
       const diorama = await fetchAIDiorama(provinceName, districtName, atmosphere, apiBase);
 
       // Guard against stale async completion if user already switched location
       const currentKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}::${activeAtmosphere}`;
-      if (expectedKey !== currentKey || !diorama) return;
+      if (expectedKey !== currentKey) return;
 
-      const img = new Image();
-      img.onload = () => {
+      if (!diorama) {
+        stage.classList.add('hidden');
+        stage.classList.remove('flex');
+        imgEl.removeAttribute('src');
+        return;
+      }
+
+      imgEl.onload = () => {
         const latestKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}::${activeAtmosphere}`;
         if (expectedKey !== latestKey) return;
-        layer.style.backgroundImage = `url("${diorama.url}")`;
         if (!diorama.isLiveAI) {
-          layer.classList.add('static-tint');
-          layer.setAttribute('data-atmo-tint', atmosphere);
+          imgEl.classList.add('static-tint');
+          imgEl.setAttribute('data-atmo-tint', atmosphere);
         }
-        layer.classList.add('loaded');
+        stage.classList.remove('hidden');
+        stage.classList.add('flex');
+        requestAnimationFrame(() => imgEl.classList.add('loaded'));
         nameEl.textContent = diorama.label;
+        imgEl.alt = diorama.label;
         cap.classList.remove('hidden');
       };
-      img.src = diorama.url;
+      imgEl.onerror = () => {
+        stage.classList.add('hidden');
+        stage.classList.remove('flex');
+      };
+      imgEl.src = diorama.url;
     }
 
     // --- THEME TOGGLE (Modern Web Guidance: dark-mode-toggle) ---

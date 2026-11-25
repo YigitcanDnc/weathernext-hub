@@ -52,22 +52,23 @@ class DioramaGenerator:
         place_ctx = f"{district} ({province})" if district and district != "__MERKEZ__" else province
 
         return (
-            f"16:9 widescreen 45-degree top-down isometric miniature 3D cartoon diorama of {place_ctx}, Turkey, "
+            f"1:1 square aspect ratio, 45-degree top-down isometric miniature 3D cartoon diorama of {place_ctx}, Turkey, "
             f"featuring its iconic landmark **{subject}** as the unmistakable centerpiece. "
-            "Composition: a compact, floating diamond-oriented square cutaway terrain island positioned slightly right-of-center "
-            "so the left third remains calm, clean pastel sky negative space for overlaid text. "
+            "Composition: a compact, floating diamond-oriented square cutaway terrain island STRICTLY CENTERED inside the 1:1 frame, "
+            "with a generous, clean, uniform 16-18% soft pastel sky/backdrop margin on ALL FOUR edges (top, bottom, left, right) "
+            "so the entire landmark spire and the entire floating island base sit comfortably inside with zero edge touching or clipping. "
             "Show realistic, tactile PBR materials (carved stone masonry, terracotta roof tiles, cobblestone, trees/water where fitting), "
             "gentle global illumination, and a subtle soft contact shadow beneath the cleanly sliced earth-and-stone base. "
             f"Weather & atmosphere: {atmo_desc} "
-            "Color palette: soothing pastel-adjacent background with richer restrained accent tones on the architecture. "
-            "STRICT RULES: full-bleed edge-to-edge composition with NO frames or borders; "
+            "Color palette: uniform soothing pastel-adjacent background around the edges so radial blending is seamless, with richer restrained accent tones on the architecture. "
+            "STRICT RULES: full-bleed 1:1 composition with NO frames or borders; "
             "ABSOLUTELY NO text, NO city names, NO letters, NO numbers, NO weather icons, NO UI panels, and NO watermarks anywhere in the image."
         )
 
     def _cache_filename(self, province: str, district: Optional[str], landmark: Optional[str], atmosphere: str) -> str:
         atmo_safe = atmosphere if atmosphere in ATMOSPHERE_DESCRIPTIONS else "partly"
         key = landmark or (f"{province}_{district}" if district and district != "__MERKEZ__" else province)
-        return f"{_slugify(key)}_{atmo_safe}.webp"
+        return f"sq_{_slugify(key)}_{atmo_safe}.webp"
 
     def _read_gcs(self, blob_name: str) -> Optional[bytes]:
         if not self.gcs_bucket_name:
@@ -94,7 +95,7 @@ class DioramaGenerator:
             logger.warning("GCS diorama write failed (%s): %s", blob_name, e)
 
     @staticmethod
-    def _to_optimized_webp(raw_bytes: bytes, max_width: int = 1280, quality: int = 82) -> bytes:
+    def _to_optimized_webp(raw_bytes: bytes, max_width: int = 800, quality: int = 84) -> bytes:
         with Image.open(io.BytesIO(raw_bytes)) as img:
             if img.mode not in ("RGB", "RGBA"):
                 img = img.convert("RGB")
@@ -142,7 +143,7 @@ class DioramaGenerator:
                 input=prompt,
                 response_format={
                     "type": "image",
-                    "aspect_ratio": "16:9",
+                    "aspect_ratio": "1:1",
                     "image_size": "1K",
                 },
             )
