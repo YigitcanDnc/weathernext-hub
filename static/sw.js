@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hava-durumu-v12';
+const CACHE_NAME = 'hava-durumu-v13';
 const SHELL_ASSETS = [
   './',
   './index.html',

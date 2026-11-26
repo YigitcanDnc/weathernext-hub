@@ -110,7 +110,7 @@ const DISTRICT_LANDMARKS = {
   'İstanbul::Fatih': { label: 'Ayasofya ve Tarihi Yarımada' },
   'İstanbul::Gaziosmanpaşa': { label: 'Gaziosmanpaşa Meydanı ve Tarihi Cami' },
   'İstanbul::Güngören': { label: 'Gençosman ve Güngören Meydanı' },
-  'İstanbul::Kadıköy': { label: 'Haydarpaşa Garı ve Kadıköy' },
+  'İstanbul::Kadıköy': { label: 'Fenerbahçe Şükrü Saracoğlu Stadyumu' },
   'İstanbul::Kağıthane': { label: 'Sadabad Kasrı ve Kağıthane Deresi' },
   'İstanbul::Kartal': { label: 'Aydos Kalesi ve Kartal Sahili' },
   'İstanbul::Küçükçekmece': { label: 'Küçükçekmece Gölü ve Bathonea' },
@@ -187,6 +187,7 @@ const DISTRICT_LANDMARKS = {
 };
 
 const PREGENERATED_DIORAMAS = {
+  'İstanbul::Kadıköy': './dioramas/kadikoy.webp?v=1',
   'İzmir': './dioramas/izmir.webp?v=2',
   'İstanbul': './dioramas/istanbul.webp?v=2',
   'Niğde': './dioramas/nigde.webp?v=2'
@@ -263,6 +264,15 @@ async function fetchAIDiorama(provinceName, districtName, atmosphere, apiBase) {
   }
 
   // 2. Fallback to pre-generated 3D isometric AI showcase dioramas (district -> province fallback)
+  if (PREGENERATED_DIORAMAS[info.key]) {
+    const res = {
+      url: PREGENERATED_DIORAMAS[info.key],
+      label: info.label,
+      isLiveAI: false
+    };
+    DIORAMA_BLOB_CACHE.set(memKey, res);
+    return res;
+  }
   if (PREGENERATED_DIORAMAS[provinceName]) {
     const provLabel = PROVINCE_LANDMARKS[provinceName]?.label || info.label;
     const res = {
