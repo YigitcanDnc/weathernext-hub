@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hava-durumu-v18';
+const CACHE_NAME = 'hava-durumu-v19';
 const SHELL_ASSETS = [
   './',
   './index.html',
@@ -6,7 +6,9 @@ const SHELL_ASSETS = [
   './landmarks.js',
   './features.js',
   './manifest.json',
-  './icon.svg'
+  './icon.svg',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {

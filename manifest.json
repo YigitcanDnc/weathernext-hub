@@ -1,7 +1,8 @@
 {
+  "id": "./",
   "name": "Hava Durumu",
   "short_name": "Hava Durumu",
-  "description": "Saatlik yağış takibi, 15 günlük tahmin ve günlük hava durumu.",
+  "description": "Saatlik yağış takibi, 15 günlük tahmin, uydu çevre analizi ve günlük hava durumu.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -11,10 +12,28 @@
   "lang": "tr",
   "icons": [
     {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "./icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

@@ -17,6 +17,9 @@
     { id: 'airQuality', label: 'Hava Kalitesi (AQI) & Polen', desc: 'Avrupa AQI, PM2.5, PM10 ve alerji polen göstergesi' },
     { id: 'radar', label: 'Canlı Yağış Radarı', desc: 'İlçe odaklı animasyonlu canlı yağış haritası' },
     { id: 'sunMoon', label: 'Gün Işığı, Altın Saat & Ay Evresi', desc: 'Güneş yayı, gün uzunluğu, golden hour ve ay evresi' },
+    { id: 'eeDust', label: 'Sahra Tozu & Uydu Aerosolü (EE)', desc: 'CAMS NRT & Sentinel-5P çöl tozu ve aerosol takibi' },
+    { id: 'eeFire', label: 'Aktif Yangın & Isı Takibi (EE — 50 km)', desc: 'NASA VIIRS/FIRMS son 72 saat sıcak nokta taraması' },
+    { id: 'eeClimate', label: 'İklim Normali Kıyaslaması (EE — 10 Yıl)', desc: 'ERA5-Land 2015–2025 aylık sıcaklık ve yağış normali' },
     { id: 'travelRoute', label: 'Güzergah / Seyahat Hava Durumu', desc: 'Çıkış saatine göre yol boyu saatlik hava tahmini' },
     { id: 'rainTimeline', label: 'Yağış Grafiği (24 Saat)', desc: 'Saatlik yağış olasılığı ve mm grafiği' },
     { id: 'hourly48', label: 'Saatlik Tahmin (48 Saat)', desc: 'Yatay 48 saatlik sıcaklık ve rüzgar akışı' },
@@ -30,6 +33,7 @@
       name: 'Standart',
       cards: {
         rainCountdown: true, airQuality: true, radar: true, sunMoon: true,
+        eeDust: true, eeFire: true, eeClimate: true,
         travelRoute: true, rainTimeline: true, hourly48: true, dailyInsights: true,
         multiDay: true, districts: true
       }
@@ -38,6 +42,7 @@
       name: 'Alerji & Sağlık',
       cards: {
         rainCountdown: true, airQuality: true, radar: false, sunMoon: true,
+        eeDust: true, eeFire: false, eeClimate: false,
         travelRoute: false, rainTimeline: false, hourly48: true, dailyInsights: true,
         multiDay: true, districts: false
       }
@@ -46,6 +51,7 @@
       name: 'Dışarıda Çalışan / Saha',
       cards: {
         rainCountdown: true, airQuality: true, radar: true, sunMoon: false,
+        eeDust: true, eeFire: true, eeClimate: false,
         travelRoute: false, rainTimeline: true, hourly48: true, dailyInsights: true,
         multiDay: true, districts: true
       }
@@ -54,6 +60,7 @@
       name: 'Sürücü & Seyahat',
       cards: {
         rainCountdown: true, airQuality: false, radar: true, sunMoon: false,
+        eeDust: false, eeFire: true, eeClimate: false,
         travelRoute: true, rainTimeline: true, hourly48: true, dailyInsights: true,
         multiDay: true, districts: false
       }
@@ -62,6 +69,7 @@
       name: 'Fotoğrafçı & Doğa',
       cards: {
         rainCountdown: true, airQuality: false, radar: true, sunMoon: true,
+        eeDust: true, eeFire: true, eeClimate: true,
         travelRoute: true, rainTimeline: false, hourly48: true, dailyInsights: false,
         multiDay: true, districts: false
       }
@@ -164,6 +172,9 @@
           };
           saveProfile(activeProfile);
           renderProfileDialogUI();
+          if (lastWeatherContext) {
+            window.loadEarthEngineInsights(lastWeatherContext.lat, lastWeatherContext.lon, lastWeatherContext.cur?.temperature_2m);
+          }
           if (typeof showToast === 'function') showToast(`${preset.name} profili uygulandı`);
         };
         presetWrap.appendChild(btn);
@@ -190,6 +201,9 @@
           activeProfile.cards[item.id] = cb.checked;
           saveProfile(activeProfile);
           renderProfileDialogUI();
+          if (cb.checked && item.id.startsWith('ee') && lastWeatherContext) {
+            window.loadEarthEngineInsights(lastWeatherContext.lat, lastWeatherContext.lon, lastWeatherContext.cur?.temperature_2m);
+          }
         };
         togglesWrap.appendChild(row);
       });
@@ -1129,6 +1143,117 @@
     }
   };
 
+  // --- 8. MODULAR GOOGLE EARTH ENGINE DATASETS (DUST, FIRMS FIRE, ERA5 CLIMATE) ---
+  let eeInsightsCache = new Map();
+  let eeInFlightKey = '';
+  let eeReqToken = 0;
+
+  function renderEarthEngineUI(data, currentTempC) {
+    const mods = data?.modules || {};
+    const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+
+    // A) Dust & Aerosol (CAMS + Sentinel-5P)
+    const dust = mods.dust;
+    if (dust) {
+      const badge = document.getElementById('eeDustLevelBadge');
+      if (dust.ok) {
+        if (badge) {
+          badge.textContent = dust.level || '--';
+          const isWarn = (dust.level || '').includes('Orta') || (dust.level || '').includes('Yoğun');
+          badge.className = `px-2.5 py-0.5 rounded-full text-[11px] font-bold ${isWarn ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'}`;
+        }
+        setTxt('eeDustAodValue', dust.aod_550 != null ? dust.aod_550.toFixed(2) : '--');
+        setTxt('eeDustUvaiValue', dust.uv_aerosol_index != null ? dust.uv_aerosol_index.toFixed(2) : '--');
+        setTxt('eeDustStatusText', dust.summary || '');
+      } else {
+        if (badge) badge.textContent = 'Beklemede';
+        setTxt('eeDustStatusText', dust.error || 'Uydu aerosol verisi şu an alınamadı.');
+      }
+    }
+
+    // B) Active Fire (NASA VIIRS / FIRMS - 50 km)
+    const fire = mods.fire;
+    if (fire) {
+      const badge = document.getElementById('eeFireBadge');
+      if (fire.ok) {
+        if (badge) {
+          badge.textContent = fire.status || '--';
+          badge.className = `px-2.5 py-0.5 rounded-full text-[11px] font-bold ${fire.hotspot_count > 0 ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'}`;
+        }
+        setTxt('eeFireCountValue', `${fire.hotspot_count ?? 0} Nokta`);
+        setTxt('eeFireTempValue', fire.max_frp_mw != null ? `${fire.max_frp_mw} MW` : (fire.max_brightness_k != null ? `${fire.max_brightness_k} K` : '--'));
+        setTxt('eeFireStatusText', fire.summary || '');
+      } else {
+        if (badge) badge.textContent = 'Beklemede';
+        setTxt('eeFireStatusText', fire.error || 'Aktif yangın verisi şu an alınamadı.');
+      }
+    }
+
+    // C) 10-Year Climate Normal (ERA5-Land)
+    const climate = mods.climate;
+    if (climate) {
+      const badge = document.getElementById('eeClimateBadge');
+      if (climate.ok) {
+        if (badge) badge.textContent = climate.period || '2015–2025';
+        setTxt('eeClimateNormalTemp', climate.normal_temp_c != null ? `${climate.normal_temp_c.toFixed(1)}°C` : '--');
+        setTxt('eeClimateNormalPrecip', climate.normal_precip_mm != null ? `${Math.round(climate.normal_precip_mm)} mm/ay` : '--');
+        if (currentTempC != null && climate.normal_temp_c != null) {
+          const diff = currentTempC - climate.normal_temp_c;
+          const absDiff = Math.abs(diff).toFixed(1);
+          const dirTxt = diff >= 0 ? `+${absDiff}° üzerinde` : `-${absDiff}° altında`;
+          setTxt('eeClimateDeltaText', `Anlık sıcaklık (${Math.round(currentTempC)}°C), 10 yıllık aylık ortalamanın ${dirTxt}.`);
+        } else {
+          setTxt('eeClimateDeltaText', `${climate.source || 'ERA5-Land'} 10 yıllık aylık iklim normali.`);
+        }
+      } else {
+        if (badge) badge.textContent = 'Beklemede';
+        setTxt('eeClimateDeltaText', climate.error || 'İklim normali verisi şu an alınamadı.');
+      }
+    }
+  }
+
+  window.loadEarthEngineInsights = async function (lat, lon, currentTempC, opts = {}) {
+    if (lat == null || lon == null) return;
+    const cards = activeProfile.cards || {};
+    const enabledMods = [];
+    if (cards.eeDust !== false) enabledMods.push('dust');
+    if (cards.eeFire !== false) enabledMods.push('fire');
+    if (cards.eeClimate !== false) enabledMods.push('climate');
+    if (!enabledMods.length) return;
+
+    const apiBase = typeof getWeatherNextApiBase === 'function' ? getWeatherNextApiBase() : '';
+    if (!apiBase) return;
+
+    const cacheKey = `${Number(lat).toFixed(2)},${Number(lon).toFixed(2)}:${enabledMods.join(',')}`;
+    const cached = eeInsightsCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && (now - cached.ts < 900000)) {
+      renderEarthEngineUI(cached.data, currentTempC);
+      return;
+    }
+    if (opts.reuseInFlight && eeInFlightKey === cacheKey) return;
+
+    const token = ++eeReqToken;
+    eeInFlightKey = cacheKey;
+    try {
+      const url = `${apiBase}/api/ee/insights?lat=${Number(lat).toFixed(4)}&lon=${Number(lon).toFixed(4)}&modules=${enabledMods.join(',')}`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (token !== eeReqToken) return;
+      eeInsightsCache.set(cacheKey, { ts: Date.now(), data });
+      renderEarthEngineUI(data, currentTempC ?? lastWeatherContext?.cur?.temperature_2m);
+    } catch {
+      if (token !== eeReqToken) return;
+      const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+      setTxt('eeDustStatusText', 'Earth Engine uydu servisi güncelleniyor veya geçici olarak ulaşılamıyor.');
+      setTxt('eeFireStatusText', 'Earth Engine yangın servisi güncelleniyor veya geçici olarak ulaşılamıyor.');
+      setTxt('eeClimateDeltaText', 'Earth Engine iklim servisi güncelleniyor veya geçici olarak ulaşılamıyor.');
+    } finally {
+      if (eeInFlightKey === cacheKey) eeInFlightKey = '';
+    }
+  };
+
   // --- MAIN LIFECYCLE HOOKS ---
   window.onWeatherDataRendered = function (ctx) {
     lastWeatherContext = ctx;
@@ -1136,6 +1261,7 @@
     renderRainCountdown(ctx.next24);
     renderSunMoonCard(ctx.cur, ctx.daily, ctx.todayDailyIdx);
     window.loadAirQuality(ctx.lat, ctx.lon, { reuseInFlight: true });
+    window.loadEarthEngineInsights(ctx.lat, ctx.lon, ctx.cur?.temperature_2m, { reuseInFlight: true });
     initOrUpdateRadar(ctx.lat, ctx.lon, ctx.displayLabel);
     populateRouteDatalist();
     window.refreshFavoriteLiveTemps();

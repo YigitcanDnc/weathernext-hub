@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from connectors.weather_service import WeatherService
 from connectors.weathernext_engine import WeatherNextClient
 from connectors.diorama_generator import DioramaGenerator
+from connectors.ee_datasets import EarthEngineInsightsClient
 from engines.daily_engine import generate_daily_brief, get_wmo_text
 
 app = FastAPI(title="Hava Durumu — Google WeatherNext Backend", version="4.2.0")
@@ -23,6 +24,7 @@ app.add_middleware(
 
 weather_svc = WeatherService()
 weathernext_client = WeatherNextClient()
+ee_insights_client = EarthEngineInsightsClient(weathernext_client)
 diorama_generator = DioramaGenerator()
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -50,6 +52,21 @@ def get_sw():
 @app.get("/icon.svg")
 def get_icon():
     return FileResponse(os.path.join(STATIC_DIR, "icon.svg"), media_type="image/svg+xml")
+
+
+@app.get("/icon-192.png")
+def get_icon_192():
+    return FileResponse(os.path.join(STATIC_DIR, "icon-192.png"), media_type="image/png")
+
+
+@app.get("/icon-512.png")
+def get_icon_512():
+    return FileResponse(os.path.join(STATIC_DIR, "icon-512.png"), media_type="image/png")
+
+
+@app.get("/features.js")
+def get_features_js():
+    return FileResponse(os.path.join(STATIC_DIR, "features.js"), media_type="application/javascript")
 
 
 @app.get("/turkey_locations.json")
@@ -166,6 +183,24 @@ def weathernext_extended_15d(lat: float, lon: float):
             detail=f"Google WeatherNext 15 günlük veri erişimi şu an aktif değil: {weathernext_client.last_error}",
         )
     return fc
+
+
+@app.get("/api/ee/insights")
+def earth_engine_insights(lat: float, lon: float, modules: str = "dust,fire,climate"):
+    """
+    Modular Google Earth Engine environmental intelligence:
+    - dust: ECMWF/CAMS/NRT aerosol optical depth + Sentinel-5P absorbing aerosol index
+    - fire: NASA FIRMS / SNPP VIIRS active fire hotspots within 50 km
+    - climate: ECMWF/ERA5_LAND/MONTHLY_AGGR 10-year monthly temperature & precipitation normals
+    """
+    req_mods = [m.strip().lower() for m in (modules or "").split(",") if m.strip()]
+    res = ee_insights_client.get_insights(lat, lon, req_mods or ["dust", "fire", "climate"])
+    if not res.get("available"):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Google Earth Engine modülleri şu an aktif değil: {res.get('error')}",
+        )
+    return res
 
 
 @app.get("/api/locations")

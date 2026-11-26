@@ -17,7 +17,7 @@
   <meta name="apple-mobile-web-app-title" content="Hava Durumu">
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
-  <link rel="apple-touch-icon" href="./icon.svg">
+  <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -31,7 +31,7 @@
   <!-- 81 Province & Landmark Photo Catalog -->
   <script src="./landmarks.js"></script>
   <!-- Modular Weather Experience Features -->
-  <script src="./features.js?v=2"></script>
+  <script src="./features.js?v=3"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -92,6 +92,7 @@
     .text-sec { color: var(--text-secondary); }
     .text-mut { color: var(--text-muted); }
     .profile-hidden { display: none !important; }
+    section.grid:has(> [data-card-id]):not(:has(> [data-card-id]:not(.profile-hidden))) { display: none !important; }
     .leaflet-container { z-index: 1; font-family: inherit; }
     .radar-dark-base .leaflet-basemapPane-pane {
       filter: invert(100%) hue-rotate(180deg) brightness(88%) contrast(90%) saturate(85%);
@@ -275,10 +276,11 @@
             <span>Konum Ara</span>
           </button>
 
-          <!-- PWA Install Button (hidden until installable) -->
-          <button type="button" id="pwaInstallBtn" onclick="installPWA()" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-600 text-white transition shadow-sm">
+          <!-- PWA Install Button (visible across Android, iOS & Desktop unless already installed) -->
+          <button type="button" id="pwaInstallBtn" onclick="installPWA()" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-600 text-white transition shadow-sm" title="Uygulamayı Cihazına Kur">
             <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
-            <span class="hidden sm:inline">Telefona Kur</span>
+            <span class="sm:hidden">Kur</span>
+            <span class="hidden sm:inline">Uygulamayı Kur</span>
           </button>
 
           <!-- GPS Button -->
@@ -425,6 +427,22 @@
         </button>
       </div>
     </div>
+  </dialog>
+
+  <!-- Cross-Platform PWA Install Guide Dialog -->
+  <dialog id="pwaInstallGuideDialog" closedby="any" aria-labelledby="pwaGuideTitle" class="card rounded-3xl p-0 w-[min(92vw,440px)] m-auto border border-slate-500/20 shadow-2xl overflow-hidden">
+    <div class="p-4 border-b border-slate-500/15 flex items-center justify-between gap-3">
+      <h2 id="pwaGuideTitle" class="text-sm sm:text-base font-bold flex items-center gap-2">
+        <i data-lucide="smartphone" class="w-4 h-4 text-sky-500"></i>
+        Uygulamayı Ana Ekrana Ekle
+      </h2>
+      <form method="dialog">
+        <button type="submit" aria-label="Kapat" class="p-1.5 rounded-lg hover:bg-slate-500/15 text-sec transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+    <div id="pwaGuideBody" class="p-4 sm:p-5 space-y-3 text-xs leading-relaxed"></div>
   </dialog>
 
   <!-- Toast Notice -->
@@ -640,6 +658,75 @@
           </div>
           <span class="text-[11px] text-sec font-medium">Astronomi</span>
         </div>
+      </div>
+    </section>
+
+    <!-- 3C. GOOGLE EARTH ENGINE UYDU & İKLİM MODÜLLERİ (PROFİLDEN AÇILIP KAPANABİLİR) -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Sahra Tozu & Uydu Aerosolü (CAMS NRT + Sentinel-5P) -->
+      <div data-card-id="eeDust" class="card rounded-3xl p-5 flex flex-col justify-between gap-3">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="text-xs sm:text-sm font-bold flex items-center gap-2">
+            <i data-lucide="wind" class="w-4 h-4 text-amber-500"></i>
+            Sahra Tozu & Uydu Aerosolü
+          </h3>
+          <span id="eeDustLevelBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-500/15 text-sec">Yükleniyor</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="sub-card rounded-2xl p-3">
+            <div class="text-[10px] font-bold text-sec uppercase">CAMS AOD (550nm)</div>
+            <div id="eeDustAodValue" class="text-lg font-extrabold mt-0.5">--</div>
+          </div>
+          <div class="sub-card rounded-2xl p-3">
+            <div class="text-[10px] font-bold text-sec uppercase">Sentinel-5P UVAI</div>
+            <div id="eeDustUvaiValue" class="text-lg font-extrabold mt-0.5">--</div>
+          </div>
+        </div>
+        <p id="eeDustStatusText" class="text-xs text-sec leading-relaxed">Uydu aerosol yoğunluğu kontrol ediliyor...</p>
+      </div>
+
+      <!-- Aktif Yangın & Isı Takibi (NASA VIIRS / FIRMS — 50 km) -->
+      <div data-card-id="eeFire" class="card rounded-3xl p-5 flex flex-col justify-between gap-3">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="text-xs sm:text-sm font-bold flex items-center gap-2">
+            <i data-lucide="flame" class="w-4 h-4 text-rose-500"></i>
+            Aktif Yangın Takibi (50 km)
+          </h3>
+          <span id="eeFireBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-500/15 text-sec">Yükleniyor</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="sub-card rounded-2xl p-3">
+            <div class="text-[10px] font-bold text-sec uppercase">Son 72s Tespit</div>
+            <div id="eeFireCountValue" class="text-lg font-extrabold mt-0.5">--</div>
+          </div>
+          <div class="sub-card rounded-2xl p-3">
+            <div class="text-[10px] font-bold text-sec uppercase">Isı / Güç</div>
+            <div id="eeFireTempValue" class="text-lg font-extrabold mt-0.5">--</div>
+          </div>
+        </div>
+        <p id="eeFireStatusText" class="text-xs text-sec leading-relaxed">NASA VIIRS / FIRMS 50 km yarıçapı taranıyor...</p>
+      </div>
+
+      <!-- İklim Normali Kıyaslaması (ERA5-Land 10 Yıl) -->
+      <div data-card-id="eeClimate" class="card rounded-3xl p-5 flex flex-col justify-between gap-3">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="text-xs sm:text-sm font-bold flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-500"></i>
+            İklim Normali (ERA5-Land)
+          </h3>
+          <span id="eeClimateBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">2015–2025</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="sub-card rounded-2xl p-3">
+            <div class="text-[10px] font-bold text-sec uppercase">Aylık Sıcaklık Norm.</div>
+            <div id="eeClimateNormalTemp" class="text-lg font-extrabold mt-0.5">--</div>
+          </div>
+          <div class="sub-card rounded-2xl p-3">
+            <div class="text-[10px] font-bold text-sec uppercase">Aylık Yağış Norm.</div>
+            <div id="eeClimateNormalPrecip" class="text-lg font-extrabold mt-0.5">--</div>
+          </div>
+        </div>
+        <p id="eeClimateDeltaText" class="text-xs text-sec leading-relaxed">10 yıllık tarihsel aylık iklim ortalaması yükleniyor...</p>
       </div>
     </section>
 
@@ -1293,27 +1380,96 @@
       selectLocation(item.province, item.district);
     }
 
-    // --- PWA REGISTRATION & INSTALL ---
+    // --- PWA REGISTRATION & CROSS-DEVICE INSTALL ---
+    function isRunningStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function initPWAInstallUI() {
+      const btn = document.getElementById('pwaInstallBtn');
+      if (!btn) return;
+      if (isRunningStandalone()) {
+        btn.classList.add('hidden');
+        btn.classList.remove('inline-flex');
+      } else {
+        btn.classList.remove('hidden');
+        btn.classList.add('inline-flex');
+      }
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
+        initPWAInstallUI();
       });
+    } else {
+      window.addEventListener('load', initPWAInstallUI);
     }
 
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
+      initPWAInstallUI();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
       const btn = document.getElementById('pwaInstallBtn');
-      btn.classList.remove('hidden');
-      btn.classList.add('inline-flex');
+      if (btn) {
+        btn.classList.add('hidden');
+        btn.classList.remove('inline-flex');
+      }
+      showToast('Uygulama cihazınıza kuruldu!');
     });
 
     async function installPWA() {
-      if (!deferredInstallPrompt) return;
-      deferredInstallPrompt.prompt();
-      await deferredInstallPrompt.userChoice;
-      deferredInstallPrompt = null;
-      document.getElementById('pwaInstallBtn').classList.add('hidden');
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice?.outcome === 'accepted') {
+          deferredInstallPrompt = null;
+          document.getElementById('pwaInstallBtn')?.classList.add('hidden');
+        }
+        return;
+      }
+
+      const dlg = document.getElementById('pwaInstallGuideDialog');
+      const body = document.getElementById('pwaGuideBody');
+      if (!dlg || !body) return;
+
+      const ua = navigator.userAgent || '';
+      const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isAndroid = /Android/i.test(ua);
+
+      if (isIOS) {
+        const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|Instagram|FBAN/i.test(ua);
+        body.innerHTML = `
+          ${!isSafari ? '<div class="rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 px-3 py-2 font-semibold">Bu adresi önce Safari tarayıcısında açın (iPhone’da ana ekrana ekleme yalnızca Safari üzerinden çalışır).</div>' : ''}
+          <ol class="space-y-2 list-decimal list-inside">
+            <li>Ekranın altındaki <strong>Paylaş (↑)</strong> simgesine dokunun.</li>
+            <li>Açılan menüyü yukarı kaydırıp <strong>"Ana Ekrana Ekle"</strong> seçeneğine dokunun.</li>
+            <li>Sağ üstten <strong>"Ekle"</strong> butonuna basın.</li>
+          </ol>
+        `;
+      } else if (isAndroid) {
+        body.innerHTML = `
+          <ol class="space-y-2 list-decimal list-inside">
+            <li>Tarayıcının sağ üstündeki <strong>Menü (⋮ veya ≡)</strong> simgesine dokunun.</li>
+            <li><strong>"Uygulamayı yükle"</strong> veya <strong>"Ana ekrana ekle"</strong> seçeneğine dokunun.</li>
+            <li>Açılan onay penceresinden <strong>"Yükle"</strong> butonunu onaylayın.</li>
+          </ol>
+        `;
+      } else {
+        body.innerHTML = `
+          <ol class="space-y-2 list-decimal list-inside">
+            <li>Adres çubuğunun sağındaki <strong>Yükle (⊕ / bilgisayar)</strong> simgesine tıklayın.</li>
+            <li>Veya tarayıcı menüsünden <strong>Yayınla, kaydet ve paylaş → Sayfayı uygulama olarak yükle</strong> seçeneğini kullanın.</li>
+          </ol>
+        `;
+      }
+
+      dlg.showModal();
+      lucide.createIcons();
     }
 
     // --- TOAST ---
@@ -1637,6 +1793,7 @@
       loadWeatherNextOverlay(lat, lon);
       loadWeatherNext15d(lat, lon);
       if (typeof loadAirQuality === 'function') loadAirQuality(lat, lon);
+      if (typeof loadEarthEngineInsights === 'function') loadEarthEngineInsights(lat, lon);
       try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,dew_point_2m,pressure_msl,visibility,precipitation_probability,precipitation,rain,snowfall,wind_speed_10m,wind_gusts_10m,uv_index,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_gusts_10m,pressure_msl,weather_code&timezone=auto&past_days=1&forecast_days=16`;
         const resp = await fetch(url);
