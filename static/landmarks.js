@@ -186,8 +186,13 @@ const DISTRICT_LANDMARKS = {
   'Bolu::Mudurnu': { label: 'Mudurnu Tarihi Evleri ve Saat Kulesi' }
 };
 
+// Exact-key custom dioramas that always take priority over live API generation/cache
+const CUSTOM_DIORAMAS = {
+  'İstanbul::Kadıköy': './dioramas/kadikoy.webp?v=2'
+};
+
+// Province-level fallback dioramas used only when live API is unavailable
 const PREGENERATED_DIORAMAS = {
-  'İstanbul::Kadıköy': './dioramas/kadikoy.webp?v=2',
   'İzmir': './dioramas/izmir.webp?v=2',
   'İstanbul': './dioramas/istanbul.webp?v=2',
   'Niğde': './dioramas/nigde.webp?v=2'
@@ -237,6 +242,17 @@ async function fetchAIDiorama(provinceName, districtName, atmosphere, apiBase) {
     return DIORAMA_BLOB_CACHE.get(memKey);
   }
 
+  // 0. Exact-key custom/reference-matched dioramas always win immediately
+  if (CUSTOM_DIORAMAS[info.key]) {
+    const res = {
+      url: CUSTOM_DIORAMAS[info.key],
+      label: info.label,
+      isLiveAI: false
+    };
+    DIORAMA_BLOB_CACHE.set(memKey, res);
+    return res;
+  }
+
   // 1. Try live Gemini AI Diorama endpoint on Cloud Run / local backend
   if (apiBase) {
     try {
@@ -263,16 +279,7 @@ async function fetchAIDiorama(provinceName, districtName, atmosphere, apiBase) {
     } catch {}
   }
 
-  // 2. Fallback to pre-generated 3D isometric AI showcase dioramas (district -> province fallback)
-  if (PREGENERATED_DIORAMAS[info.key]) {
-    const res = {
-      url: PREGENERATED_DIORAMAS[info.key],
-      label: info.label,
-      isLiveAI: false
-    };
-    DIORAMA_BLOB_CACHE.set(memKey, res);
-    return res;
-  }
+  // 2. Fallback to pre-generated 3D isometric AI showcase dioramas (province fallback)
   if (PREGENERATED_DIORAMAS[provinceName]) {
     const provLabel = PROVINCE_LANDMARKS[provinceName]?.label || info.label;
     const res = {
