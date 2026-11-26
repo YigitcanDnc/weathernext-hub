@@ -831,10 +831,8 @@
         const latestKey = `${currentProvince?.name}::${currentDistrict ? currentDistrict.name : '__MERKEZ__'}::${activeAtmosphere}`;
         if (expectedKey !== latestKey) return;
         setDioramaLayoutActive(true);
-        if (!diorama.isLiveAI) {
-          imgEl.classList.add('island-tint');
-          imgEl.setAttribute('data-atmo-tint', atmosphere);
-        }
+        imgEl.classList.add('island-tint');
+        imgEl.setAttribute('data-atmo-tint', atmosphere);
         stage.classList.remove('hidden');
         stage.classList.add('flex');
         requestAnimationFrame(() => imgEl.classList.add('loaded'));

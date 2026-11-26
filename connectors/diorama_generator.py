@@ -1,25 +1,15 @@
 import os
 import re
 import io
+import json
 import base64
 import logging
-from typing import Optional
+from typing import Optional, Tuple
 
 from PIL import Image, ImageFilter
 import numpy as np
 
 logger = logging.getLogger("diorama")
-
-ATMOSPHERE_DESCRIPTIONS = {
-    "sunny": "Bright, crisp sunny daylight directly illuminating the island with warm golden sunlight highlights and rich vibrant architecture surfaces.",
-    "partly": "Balanced, cheerful daylight softly illuminating the architecture, rooftops, and greenery of the island.",
-    "cloudy": "Soft diffused overcast daylight across the island's stone masonry, roofs, and greenery with cool muted shadowless lighting.",
-    "rainy": "Rain-soaked island atmosphere with wet glistening rooftops, glossy damp cobblestones, tiny puddles on plazas, and cool overcast lighting on the island itself.",
-    "stormy": "Dramatic moody storm lighting on the island with wet reflective stone and roof surfaces, deep cool twilight contrast on walls, and warm amber light glowing inside windows.",
-    "snowy": "Crisp winter snowfall on the island with fresh soft white snow blanketing rooftops, castle walls, plazas, and trees, illuminated by cool daylight.",
-    "foggy": "Serene misty morning mood with subtle wispy haze tucked tightly between the lower buildings on the island slab only (never spilling outside the island silhouette).",
-    "night": "Peaceful starry night lighting on the island architecture with cool silver-blue moonlight grazing the stone facades and roofs, plus warm golden lights glowing inside windows and street lanterns.",
-}
 
 
 def _slugify(value: str) -> str:
@@ -30,37 +20,126 @@ def _slugify(value: str) -> str:
 
 class DioramaGenerator:
     """
-    Generates 45-degree isometric 3D miniature city landmark weather dioramas using
-    Google Gemini Nano Banana 2.1 (`gemini-nano-banana-2.1`) via the official Interactions SDK,
-    caching compact WebP outputs locally and optionally in Google Cloud Storage.
+    2-Layer Economic 3D Isometric Miniature Diorama Generator:
+    - Layer 1: Uses curated province/district landmarks when provided by the catalog.
+    - Layer 2: For any unmapped Turkish district (900+ districts), runs a one-time
+      lightweight `gemini-3.5-flash-lite` landmark discovery call and caches the result.
+    - Economic mode: Generates ONE shadowless, true-transparent (RGBA WebP) daytime
+      isometric island per province/district (`eco_<slug>.webp`) and caches it locally + GCS.
     """
 
     def __init__(self):
         self.model = "gemini-nano-banana-2.1"
+        self.discovery_model = "gemini-3.5-flash-lite"
         self.local_cache_dir = os.environ.get("DIORAMA_CACHE_DIR", "/tmp/diorama_cache")
         if os.name == "nt" and self.local_cache_dir == "/tmp/diorama_cache":
             self.local_cache_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "dioramas_cache")
         os.makedirs(self.local_cache_dir, exist_ok=True)
         self.gcs_bucket_name = os.environ.get("DIORAMA_GCS_BUCKET", "").strip()
         self.last_error: Optional[str] = None
+        self._landmark_cache_path = os.path.join(self.local_cache_dir, "discovered_landmarks.json")
+        self._landmark_cache: dict = self._load_landmark_cache()
 
     def is_enabled(self) -> bool:
         return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
 
-    def build_prompt(self, province: str, district: Optional[str], landmark: Optional[str], atmosphere: str) -> str:
-        atmo_desc = ATMOSPHERE_DESCRIPTIONS.get(atmosphere, ATMOSPHERE_DESCRIPTIONS["partly"])
-        subject = landmark or (f"{district}, {province}" if district and district != "__MERKEZ__" else province)
-        place_ctx = f"{district} ({province})" if district and district != "__MERKEZ__" else province
+    def _load_landmark_cache(self) -> dict:
+        if os.path.exists(self._landmark_cache_path):
+            try:
+                with open(self._landmark_cache_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        return data
+            except Exception:
+                pass
+        gcs_bytes = self._read_gcs("discovered_landmarks.json")
+        if gcs_bytes:
+            try:
+                data = json.loads(gcs_bytes.decode("utf-8"))
+                if isinstance(data, dict):
+                    with open(self._landmark_cache_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                    return data
+            except Exception:
+                pass
+        return {}
+
+    def _save_landmark_cache(self) -> None:
+        try:
+            payload = json.dumps(self._landmark_cache, ensure_ascii=False, indent=2).encode("utf-8")
+            with open(self._landmark_cache_path, "wb") as f:
+                f.write(payload)
+            self._write_gcs("discovered_landmarks.json", payload, content_type="application/json")
+        except Exception as e:
+            logger.warning("Failed to persist landmark discovery cache: %s", e)
+
+    def discover_district_landmark(self, client, province: str, district: str) -> dict:
+        """
+        Layer 2: One-time lightweight Gemini 3.5 Flash-Lite lookup for any Turkish district
+        not present in the curated catalog. Cached permanently on disk & GCS.
+        """
+        cache_key = f"{province}::{district}"
+        if cache_key in self._landmark_cache:
+            return self._landmark_cache[cache_key]
+
+        fallback = {
+            "label": f"{district} ({province})",
+            "visual": f"characteristic historic town square, local architecture, and natural landscape of {district} district in {province}, Turkey",
+        }
+        try:
+            prompt = (
+                f"Identify the single most recognizable, authentic landmark, historic structure, or iconic natural feature "
+                f"of the district '{district}' in '{province}' province, Turkey. "
+                "If the district has no single famous monument, describe its most distinctive local square, mosque, bridge, "
+                "coastal marina, lake, castle, thermal bath, pine forest, or regional architecture. "
+                "Reply ONLY with valid JSON (no markdown fences) with exactly two keys:\n"
+                '{"label": "Short Turkish title (max 5 words)", '
+                '"visual": "Concise English architectural and landscape visual description (15-25 words) suitable for a 3D isometric miniature diorama"}'
+            )
+            interaction = client.interactions.create(
+                model=self.discovery_model,
+                input=prompt,
+                store=False,
+            )
+            raw_text = (getattr(interaction, "output_text", None) or "").strip()
+            match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group(0))
+                label = str(parsed.get("label") or "").strip()
+                visual = str(parsed.get("visual") or "").strip()
+                if label and visual:
+                    entry = {"label": label[:72], "visual": visual[:240]}
+                    self._landmark_cache[cache_key] = entry
+                    self._save_landmark_cache()
+                    return entry
+        except Exception as e:
+            logger.warning("Layer-2 landmark discovery failed for %s: %s", cache_key, e)
+
+        self._landmark_cache[cache_key] = fallback
+        self._save_landmark_cache()
+        return fallback
+
+    def build_prompt(
+        self,
+        province: str,
+        district: Optional[str],
+        landmark: Optional[str],
+        visual_hint: Optional[str] = None,
+    ) -> str:
+        is_dist = bool(district and district != "__MERKEZ__")
+        subject = landmark or (f"{district}, {province}" if is_dist else province)
+        place_ctx = f"{district} ({province})" if is_dist else province
+        visual_clause = f" Visual details to highlight: {visual_hint}." if visual_hint else ""
 
         return (
             f"1:1 square aspect ratio, 45-degree top-down isometric miniature 3D cartoon diorama of {place_ctx}, Turkey, "
-            f"featuring its iconic landmark **{subject}** as the unmistakable centerpiece. "
+            f"featuring its iconic local landmark **{subject}** as the unmistakable centerpiece.{visual_clause} "
             "Composition: a compact, floating diamond-oriented square cutaway terrain island STRICTLY CENTERED inside the 1:1 frame, "
             "with a generous 15% completely flat pure solid #FFFFFF white margin on ALL FOUR edges (top, bottom, left, right) "
             "so the entire landmark spire and the entire floating island base sit cleanly inside with zero edge touching or clipping. "
             "Show realistic, tactile PBR materials (carved stone masonry, terracotta roof tiles, cobblestone, trees/water where fitting) "
             "with crisp, well-defined silhouette edges along the cleanly sliced earth-and-stone island base. "
-            f"Lighting & surface mood on the island: {atmo_desc} "
+            "Lighting: balanced, bright, crisp studio daylight illuminating the architecture and landscape cleanly. "
             "CRITICAL ISOLATION RULES: Place ONLY the floating 3D island on a 100% FLAT, UNIFORM, PURE SOLID #FFFFFF WHITE studio background. "
             "ABSOLUTELY NO cast shadow, NO drop shadow, NO ambient floor shadow beneath the island, NO ground plane, NO sky gradient, "
             "NO floating clouds outside the island, and NO mist or fog extending past the island silhouette. "
@@ -68,10 +147,10 @@ class DioramaGenerator:
             "ABSOLUTELY NO text, NO city names, NO letters, NO numbers, NO weather icons, NO UI panels, and NO watermarks anywhere in the image."
         )
 
-    def _cache_filename(self, province: str, district: Optional[str], landmark: Optional[str], atmosphere: str) -> str:
-        atmo_safe = atmosphere if atmosphere in ATMOSPHERE_DESCRIPTIONS else "partly"
-        key = landmark or (f"{province}_{district}" if district and district != "__MERKEZ__" else province)
-        return f"cut_{_slugify(key)}_{atmo_safe}.webp"
+    def _cache_filename(self, province: str, district: Optional[str], landmark: Optional[str] = None) -> str:
+        is_dist = bool(district and district != "__MERKEZ__")
+        key = f"{province}_{district}" if is_dist else province
+        return f"eco_{_slugify(key)}.webp"
 
     def _read_gcs(self, blob_name: str) -> Optional[bytes]:
         if not self.gcs_bucket_name:
@@ -86,14 +165,14 @@ class DioramaGenerator:
             logger.warning("GCS diorama read failed (%s): %s", blob_name, e)
         return None
 
-    def _write_gcs(self, blob_name: str, data: bytes) -> None:
+    def _write_gcs(self, blob_name: str, data: bytes, content_type: str = "image/webp") -> None:
         if not self.gcs_bucket_name:
             return
         try:
             from google.cloud import storage
             client = storage.Client()
             blob = client.bucket(self.gcs_bucket_name).blob(f"dioramas/{blob_name}")
-            blob.upload_from_string(data, content_type="image/webp")
+            blob.upload_from_string(data, content_type=content_type)
         except Exception as e:
             logger.warning("GCS diorama write failed (%s): %s", blob_name, e)
 
@@ -206,33 +285,51 @@ class DioramaGenerator:
         province: str,
         district: Optional[str] = None,
         landmark: Optional[str] = None,
-        atmosphere: str = "partly",
-    ) -> Optional[bytes]:
-        filename = self._cache_filename(province, district, landmark, atmosphere)
+        atmosphere: str = "day",
+    ) -> Tuple[Optional[bytes], str]:
+        is_dist = bool(district and district != "__MERKEZ__")
+        filename = self._cache_filename(province, district, landmark)
         local_path = os.path.join(self.local_cache_dir, filename)
 
-        # 1. Local disk cache
+        cache_key = f"{province}::{district}" if is_dist else f"{province}::__MERKEZ__"
+        cached_meta = self._landmark_cache.get(cache_key)
+        resolved_label = (
+            (landmark or "").strip()
+            or (cached_meta.get("label") if isinstance(cached_meta, dict) else "")
+            or (f"{district} ({province})" if is_dist else province)
+        )
+
+        # 1. Local disk cache (1 economic island per province/district)
         if os.path.exists(local_path):
             with open(local_path, "rb") as f:
-                return f.read()
+                return f.read(), resolved_label
 
         # 2. GCS persistent cache
         gcs_bytes = self._read_gcs(filename)
         if gcs_bytes:
             with open(local_path, "wb") as f:
                 f.write(gcs_bytes)
-            return gcs_bytes
+            return gcs_bytes, resolved_label
 
-        # 3. Generate live via Gemini Nano Banana 2.1
+        # 3. Generate live via Gemini (Layer 2 discovery if unmapped district -> Nano Banana 2.1)
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             self.last_error = "GEMINI_API_KEY ortam değişkeni tanımlı değil."
-            return None
+            return None, resolved_label
 
         try:
             from google import genai
             client = genai.Client(api_key=api_key)
-            prompt = self.build_prompt(province, district, landmark, atmosphere)
+
+            visual_hint = None
+            clean_landmark = (landmark or "").strip()
+            if not clean_landmark and is_dist:
+                discovered = self.discover_district_landmark(client, province, district)
+                clean_landmark = discovered.get("label") or resolved_label
+                visual_hint = discovered.get("visual")
+                resolved_label = clean_landmark
+
+            prompt = self.build_prompt(province, district, clean_landmark or None, visual_hint=visual_hint)
             interaction = client.interactions.create(
                 model=self.model,
                 input=prompt,
@@ -244,7 +341,7 @@ class DioramaGenerator:
             )
             if not interaction.output_image or not interaction.output_image.data:
                 self.last_error = "Gemini görsel çıktısı boş döndü."
-                return None
+                return None, resolved_label
 
             raw_bytes = base64.b64decode(interaction.output_image.data)
             webp_bytes = self._to_optimized_webp(raw_bytes)
@@ -253,8 +350,8 @@ class DioramaGenerator:
                 f.write(webp_bytes)
             self._write_gcs(filename, webp_bytes)
             self.last_error = None
-            return webp_bytes
+            return webp_bytes, resolved_label
         except Exception as e:
             self.last_error = str(e)
             logger.exception("Gemini diorama generation failed: %s", e)
-            return None
+            return None, resolved_label

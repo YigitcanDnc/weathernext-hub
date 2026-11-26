@@ -76,6 +76,8 @@ def diorama_status():
     return {
         "enabled": diorama_generator.is_enabled(),
         "model": diorama_generator.model,
+        "discovery_model": diorama_generator.discovery_model,
+        "mode": "economic-2layer-single-island",
     }
 
 
@@ -84,13 +86,16 @@ def get_city_diorama(
     province: str = "İstanbul",
     district: Optional[str] = None,
     landmark: Optional[str] = None,
-    atmosphere: str = "partly",
+    atmosphere: str = "day",
 ):
     """
-    Returns an AI-generated 45-degree isometric 3D miniature weather diorama (WebP)
-    matching the selected province/district landmark and live weather atmosphere.
+    Returns an AI-generated 45-degree isometric 3D miniature diorama (RGBA WebP)
+    using 2-layer localization (curated catalog + automatic district landmark discovery)
+    in economic single-island cache mode.
     """
-    webp_bytes = diorama_generator.get_or_generate(
+    from urllib.parse import quote
+
+    webp_bytes, resolved_label = diorama_generator.get_or_generate(
         province=province,
         district=district,
         landmark=landmark,
@@ -104,7 +109,11 @@ def get_city_diorama(
     return Response(
         content=webp_bytes,
         media_type="image/webp",
-        headers={"Cache-Control": "public, max-age=86400"},
+        headers={
+            "Cache-Control": "public, max-age=604800",
+            "X-Diorama-Landmark": quote(resolved_label or "", safe=""),
+            "Access-Control-Expose-Headers": "X-Diorama-Landmark",
+        },
     )
 
 

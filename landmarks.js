@@ -87,14 +87,66 @@ const PROVINCE_LANDMARKS = {
 };
 
 const DISTRICT_LANDMARKS = {
-  'İstanbul::Kadıköy': { label: 'Haydarpaşa Garı ve Kadıköy' },
-  'İstanbul::Üsküdar': { label: 'Kız Kulesi ve Üsküdar' },
-  'İstanbul::Beşiktaş': { label: 'Ortaköy Camii ve Boğaz Köprüsü' },
-  'İstanbul::Fatih': { label: 'Ayasofya ve Tarihi Yarımada' },
-  'İstanbul::Beyoğlu': { label: 'Galata Kulesi' },
+  // İstanbul (39 ilçenin tamamı — Katman 1)
   'İstanbul::Adalar': { label: 'Büyükada ve Faytonlu Sahil' },
-  'İstanbul::Sarıyer': { label: 'Rumeli Hisarı' },
+  'İstanbul::Arnavutköy': { label: 'Karaburun Feneri ve Terkos Gölü' },
+  'İstanbul::Ataşehir': { label: 'İstanbul Finans Merkezi ve Modern Kuleler' },
+  'İstanbul::Avcılar': { label: 'Küçükçekmece Gölü ve Avcılar Sahili' },
+  'İstanbul::Bağcılar': { label: 'Bağcılar Meydanı ve Nostaljik Bahçe' },
+  'İstanbul::Bahçelievler': { label: 'Siyavuşpaşa Kasrı ve Çobançeşme Köprüsü' },
+  'İstanbul::Bakırköy': { label: 'Ataköy Marina ve Baruthane' },
+  'İstanbul::Başakşehir': { label: 'Sular Vadisi ve Şamlar Tabiat Parkı' },
+  'İstanbul::Bayrampaşa': { label: 'Bayrampaşa Şehir Parkı ve Tarihi Su Kemeri' },
+  'İstanbul::Beşiktaş': { label: 'Ortaköy Camii ve Boğaz Köprüsü' },
+  'İstanbul::Beykoz': { label: 'Anadolu Hisarı ve Hidiv Kasrı' },
+  'İstanbul::Beylikdüzü': { label: 'Yaşam Vadisi ve Gürpınar Sahili' },
+  'İstanbul::Beyoğlu': { label: 'Galata Kulesi' },
+  'İstanbul::Büyükçekmece': { label: 'Mimar Sinan Köprüsü ve Büyükçekmece Gölü' },
+  'İstanbul::Çatalca': { label: 'Mübadele Evleri ve İnceğiz Mağaraları' },
+  'İstanbul::Çekmeköy': { label: 'Alemdağ Ormanı ve Çekmeköy' },
+  'İstanbul::Esenler': { label: 'Esenler Dörtyol Meydanı ve Tarihi Su Kemeri' },
+  'İstanbul::Esenyurt': { label: 'Esenyurt Meydanı ve Şehir Parkı' },
   'İstanbul::Eyüpsultan': { label: 'Eyüpsultan ve Pierre Loti' },
+  'İstanbul::Fatih': { label: 'Ayasofya ve Tarihi Yarımada' },
+  'İstanbul::Gaziosmanpaşa': { label: 'Gaziosmanpaşa Meydanı ve Tarihi Cami' },
+  'İstanbul::Güngören': { label: 'Gençosman ve Güngören Meydanı' },
+  'İstanbul::Kadıköy': { label: 'Haydarpaşa Garı ve Kadıköy' },
+  'İstanbul::Kağıthane': { label: 'Sadabad Kasrı ve Kağıthane Deresi' },
+  'İstanbul::Kartal': { label: 'Aydos Kalesi ve Kartal Sahili' },
+  'İstanbul::Küçükçekmece': { label: 'Küçükçekmece Gölü ve Bathonea' },
+  'İstanbul::Maltepe': { label: 'Maltepe Sahil Parkı ve Beşçeşmeler' },
+  'İstanbul::Pendik': { label: 'Pendik Marina ve Sahil' },
+  'İstanbul::Sancaktepe': { label: 'Damatris Sarayı Kalıntıları ve Aydos Etekleri' },
+  'İstanbul::Sarıyer': { label: 'Rumeli Hisarı' },
+  'İstanbul::Silivri': { label: 'Silivri Kalesi ve Mimar Sinan Köprüsü' },
+  'İstanbul::Sultanbeyli': { label: 'Aydos Kalesi ve Göleti' },
+  'İstanbul::Sultangazi': { label: 'Mağlova Kemeri ve Kent Ormanı' },
+  'İstanbul::Şile': { label: 'Şile Feneri ve Şile Kalesi' },
+  'İstanbul::Şişli': { label: 'Ihlamur Kasrı ve Şişli Silüeti' },
+  'İstanbul::Tuzla': { label: 'Tuzla Marina ve Mercan Sahili' },
+  'İstanbul::Ümraniye': { label: 'Ümraniye Millet Bahçesi ve Çamlıca Etekleri' },
+  'İstanbul::Üsküdar': { label: 'Kız Kulesi ve Üsküdar' },
+  'İstanbul::Zeytinburnu': { label: 'Yedikule Surları ve Merkezefendi' },
+  // Ankara, İzmir, Niğde ve Türkiye'nin öne çıkan ilçeleri
+  'Ankara::Çankaya': { label: 'Atakule ve Çankaya' },
+  'Ankara::Altındağ': { label: 'Ankara Kalesi ve Hamamönü' },
+  'Ankara::Beypazarı': { label: 'Beypazarı Tarihi Konakları' },
+  'Ankara::Gölbaşı': { label: 'Mogan Gölü ve Eymir' },
+  'Ankara::Polatlı': { label: 'Gordion Antik Kenti ve Tümülüs' },
+  'İzmir::Konak': { label: 'İzmir Saat Kulesi ve Konak Meydanı' },
+  'İzmir::Karşıyaka': { label: 'Karşıyaka Sahili ve Vapur İskelesi' },
+  'İzmir::Bornova': { label: 'Bornova Levanten Köşkleri' },
+  'İzmir::Selçuk': { label: 'Efes Antik Kenti' },
+  'İzmir::Çeşme': { label: 'Çeşme Kalesi ve Alaçatı' },
+  'İzmir::Foça': { label: 'Foça Sahili ve Yel Değirmenleri' },
+  'İzmir::Urla': { label: 'Urla İskelesi ve Bağlar' },
+  'İzmir::Seferihisar': { label: 'Sığacık Kalesi ve Yat Limanı' },
+  'İzmir::Bergama': { label: 'Bergama Akropolü' },
+  'İzmir::Tire': { label: 'Tire Tarihi Çarşısı ve Taş Konaklar' },
+  'İzmir::Ödemiş': { label: 'Birgi Tarihi Evleri ve Çakırağa Konağı' },
+  'Niğde::Bor': { label: 'Kemerhisar Roma Su Kemerleri ve Bor' },
+  'Niğde::Çamardı': { label: 'Aladağlar Zirveleri (Çamardı)' },
+  'Niğde::Ulukışla': { label: 'Öküz Mehmet Paşa Kervansarayı' },
   'Muğla::Bodrum': { label: 'Bodrum Kalesi ve Yat Limanı' },
   'Muğla::Fethiye': { label: 'Ölüdeniz (Fethiye)' },
   'Muğla::Marmaris': { label: 'Marmaris Kalesi ve Koyu' },
@@ -107,11 +159,6 @@ const DISTRICT_LANDMARKS = {
   'Antalya::Kemer': { label: 'Kemer ve Olimpos Dağı' },
   'Nevşehir::Ürgüp': { label: 'Ürgüp Peri Bacaları' },
   'Nevşehir::Avanos': { label: 'Avanos ve Kızılırmak' },
-  'İzmir::Selçuk': { label: 'Efes Antik Kenti' },
-  'İzmir::Çeşme': { label: 'Çeşme Kalesi ve Alaçatı' },
-  'İzmir::Foça': { label: 'Foça Sahili ve Yel Değirmenleri' },
-  'İzmir::Urla': { label: 'Urla İskelesi ve Bağlar' },
-  'İzmir::Bergama': { label: 'Bergama Akropolü' },
   'Denizli::Pamukkale': { label: 'Pamukkale Travertenleri' },
   'Karabük::Safranbolu': { label: 'Safranbolu Tarihi Evleri' },
   'Mersin::Silifke': { label: 'Silifke Kalesi ve Kızkalesi' },
@@ -126,7 +173,6 @@ const DISTRICT_LANDMARKS = {
   'Çanakkale::Bozcaada': { label: 'Bozcaada Kalesi' },
   'Çanakkale::Gökçeada': { label: 'Gökçeada Kayalıkları' },
   'Kocaeli::Gebze': { label: 'Osmangazi Köprüsü ve Eskihisar Kalesi' },
-  'Niğde::Çamardı': { label: 'Aladağlar Zirveleri (Çamardı)' },
   'Erzurum::Palandöken': { label: 'Palandöken Kayak Zirvesi' },
   'Kars::Sarıkamış': { label: 'Sarıkamış Çam Ormanları' },
   'Bursa::Mudanya': { label: 'Mudanya Sahili' },
@@ -149,7 +195,7 @@ const PREGENERATED_DIORAMAS = {
 const DIORAMA_BLOB_CACHE = new Map();
 
 function resolveLandmarkInfo(provinceName, districtName) {
-  if (!provinceName) return { key: '', label: '', isDistrictSpecific: false };
+  if (!provinceName) return { key: '', label: '', landmark: '', isDistrictSpecific: false };
   const distClean = districtName && districtName !== '__MERKEZ__' ? districtName : null;
   const distKey = distClean ? `${provinceName}::${distClean}` : null;
 
@@ -157,13 +203,25 @@ function resolveLandmarkInfo(provinceName, districtName) {
     return {
       key: distKey,
       label: DISTRICT_LANDMARKS[distKey].label,
+      landmark: DISTRICT_LANDMARKS[distKey].label,
+      isDistrictSpecific: true
+    };
+  }
+  if (distClean) {
+    // Layer 2: Unmapped district — leave `landmark` empty so backend auto-discovers it once via Gemini Flash-Lite
+    return {
+      key: distKey,
+      label: `${distClean} (${provinceName})`,
+      landmark: '',
       isDistrictSpecific: true
     };
   }
   const provEntry = PROVINCE_LANDMARKS[provinceName];
+  const provLabel = provEntry ? provEntry.label : provinceName;
   return {
     key: `${provinceName}::__MERKEZ__`,
-    label: provEntry ? provEntry.label : provinceName,
+    label: provLabel,
+    landmark: provLabel,
     isDistrictSpecific: false
   };
 }
@@ -171,8 +229,8 @@ function resolveLandmarkInfo(provinceName, districtName) {
 async function fetchAIDiorama(provinceName, districtName, atmosphere, apiBase) {
   if (!provinceName) return null;
   const info = resolveLandmarkInfo(provinceName, districtName);
-  const atmo = atmosphere || 'partly';
-  const memKey = `${info.key}::${atmo}`;
+  // Economic single-island cache key per province/district (weather lighting handled in UI)
+  const memKey = info.key;
 
   if (DIORAMA_BLOB_CACHE.has(memKey)) {
     return DIORAMA_BLOB_CACHE.get(memKey);
@@ -181,11 +239,10 @@ async function fetchAIDiorama(provinceName, districtName, atmosphere, apiBase) {
   // 1. Try live Gemini AI Diorama endpoint on Cloud Run / local backend
   if (apiBase) {
     try {
-      const qs = new URLSearchParams({
-        province: provinceName,
-        landmark: info.label,
-        atmosphere: atmo
-      });
+      const qs = new URLSearchParams({ province: provinceName });
+      if (info.landmark) {
+        qs.set('landmark', info.landmark);
+      }
       if (districtName && districtName !== '__MERKEZ__') {
         qs.set('district', districtName);
       }
@@ -193,7 +250,12 @@ async function fetchAIDiorama(provinceName, districtName, atmosphere, apiBase) {
       if (resp.ok) {
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
-        const res = { url, label: info.label, isLiveAI: true };
+        const hdr = resp.headers.get('X-Diorama-Landmark');
+        let label = info.label;
+        if (hdr) {
+          try { label = decodeURIComponent(hdr); } catch {}
+        }
+        const res = { url, label, isLiveAI: true };
         DIORAMA_BLOB_CACHE.set(memKey, res);
         return res;
       }
