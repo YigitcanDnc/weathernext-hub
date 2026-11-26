@@ -585,38 +585,43 @@
     }, 'image/png');
   };
 
-  // --- 5B. LIVE PRECIPITATION RADAR (LEAFLET + RAINVIEWER) ---
-  function getRadarTileUrl() {
+  // --- 5B. LIVE PRECIPITATION RADAR (LEAFLET OSM + RAINVIEWER) ---
+  function isDarkSchemeActive() {
     const scheme = document.querySelector('meta[name="color-scheme"]')?.content || '';
-    const isDark = scheme === 'dark' || (scheme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    return isDark
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    return scheme === 'dark' || (scheme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   }
 
   window.syncRadarTheme = function () {
-    if (!radarMap || !window.L) return;
-    if (radarBaseLayer) radarMap.removeLayer(radarBaseLayer);
-    radarBaseLayer = L.tileLayer(getRadarTileUrl(), {
-      maxZoom: 14,
-      attribution: '&copy; OpenStreetMap &copy; CARTO &copy; RainViewer'
-    }).addTo(radarMap);
-    if (radarOverlayLayer) radarOverlayLayer.bringToFront();
+    const el = document.getElementById('radarMapContainer');
+    if (!el) return;
+    if (isDarkSchemeActive()) {
+      el.classList.add('radar-dark-base');
+    } else {
+      el.classList.remove('radar-dark-base');
+    }
   };
 
   async function initOrUpdateRadar(lat, lon, label) {
     const el = document.getElementById('radarMapContainer');
     if (!el || !window.L) return;
 
+    window.syncRadarTheme();
     if (!radarMap) {
-      radarMap = L.map(el, { zoomControl: true, scrollWheelZoom: false }).setView([lat, lon], 8);
-      window.syncRadarTheme();
+      radarMap = L.map(el, { zoomControl: true, scrollWheelZoom: false, minZoom: 4, maxZoom: 11 }).setView([lat, lon], 7);
+      radarMap.createPane('basemapPane');
+      radarMap.getPane('basemapPane').style.zIndex = 200;
+      radarBaseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        pane: 'basemapPane',
+        maxZoom: 18,
+        attribution: '&copy; OpenStreetMap &copy; RainViewer'
+      }).addTo(radarMap);
       radarMarker = L.circleMarker([lat, lon], {
         radius: 7, color: '#ffffff', weight: 2, fillColor: '#0ea5e9', fillOpacity: 0.95
       }).addTo(radarMap).bindTooltip(label, { direction: 'top' });
       await loadRainViewerFrames();
     } else {
-      radarMap.setView([lat, lon], Math.max(radarMap.getZoom(), 8), { animate: true });
+      const targetZoom = Math.min(Math.max(radarMap.getZoom(), 6), 7);
+      radarMap.setView([lat, lon], targetZoom, { animate: true });
       if (radarMarker) {
         radarMarker.setLatLng([lat, lon]).setTooltipContent(label);
       }
@@ -653,9 +658,15 @@
     if (!radarMap || !radarFrames.length || !window.L) return;
     radarFrameIdx = Math.max(0, Math.min(radarFrames.length - 1, idx));
     const frame = radarFrames[radarFrameIdx];
-    const url = `${frame.host}${frame.path}/256/{z}/{x}/{y}/6/1_1.png`;
+    const url = `${frame.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`;
     if (radarOverlayLayer) radarMap.removeLayer(radarOverlayLayer);
-    radarOverlayLayer = L.tileLayer(url, { opacity: 0.68, zIndex: 10 }).addTo(radarMap);
+    radarOverlayLayer = L.tileLayer(url, {
+      tileSize: 256,
+      maxNativeZoom: 7,
+      maxZoom: 11,
+      opacity: 0.72,
+      zIndex: 10
+    }).addTo(radarMap);
 
     const slider = document.getElementById('radarSlider');
     if (slider) slider.value = radarFrameIdx;
@@ -821,67 +832,93 @@
     return { txt: 'Yüksek', cls: 'text-rose-600 dark:text-rose-400' };
   }
 
-  async function loadAirQuality(lat, lon) {
+  let aqiCache = { key: '', ts: 0, data: null };
+  let aqiInFlightKey = '';
+  let aqiReqToken = 0;
+
+  function applyAirQualityUI(data) {
     const scoreEl = document.getElementById('aqiScoreValue');
     if (!scoreEl) return;
+    const c = data.current || {};
+    const aqi = Math.round(c.european_aqi ?? 0);
+    const meta = getAqiMeta(aqi);
+
+    scoreEl.textContent = aqi;
+    const badgeEl = document.getElementById('aqiStatusBadge');
+    if (badgeEl) {
+      badgeEl.textContent = meta.label;
+      badgeEl.className = `px-3 py-1 rounded-full text-xs font-bold ${meta.cls}`;
+    }
+    const barEl = document.getElementById('aqiProgressBar');
+    if (barEl) {
+      barEl.className = `h-full rounded-full transition-all ${meta.bar}`;
+      barEl.style.width = `${Math.min(100, Math.max(8, aqi))}%`;
+    }
+
+    const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    setTxt('aqiPm25', c.pm2_5 != null ? `${c.pm2_5.toFixed(1)} µg/m³` : '--');
+    setTxt('aqiPm10', c.pm10 != null ? `${c.pm10.toFixed(1)} µg/m³` : '--');
+    setTxt('aqiNo2', c.nitrogen_dioxide != null ? `${c.nitrogen_dioxide.toFixed(1)} µg/m³` : '--');
+    setTxt('aqiO3', c.ozone != null ? `${Math.round(c.ozone)} µg/m³` : '--');
+
+    const pollens = [
+      { name: 'Çimen', val: c.grass_pollen ?? 0 },
+      { name: 'Zeytin', val: c.olive_pollen ?? 0 },
+      { name: 'Huş', val: c.birch_pollen ?? 0 },
+      { name: 'Pelin', val: c.mugwort_pollen ?? 0 }
+    ];
+    const topPollen = pollens.reduce((a, b) => (b.val > a.val ? b : a), pollens[0]);
+    const pLvl = getPollenLevel(topPollen.val);
+    const pollenGrid = document.getElementById('pollenSummaryGrid');
+    if (pollenGrid) {
+      pollenGrid.innerHTML = pollens.map(p => {
+        const lv = getPollenLevel(p.val);
+        return `
+          <div class="sub-card rounded-xl px-2.5 py-2 flex items-center justify-between text-xs">
+            <span class="text-sec">${p.name}</span>
+            <span class="font-bold ${lv.cls}">${lv.txt}</span>
+          </div>
+        `;
+      }).join('');
+    }
+    const noteEl = document.getElementById('aqiHealthTip');
+    if (noteEl) {
+      noteEl.textContent = aqi > 60
+        ? 'Hava kalitesi hassas gruplar için düşük; uzun süreli yoğun dış mekan egzersizini sınırlayın.'
+        : (topPollen.val >= 20
+          ? `Hava kalitesi iyi ancak ${topPollen.name.toLowerCase()} poleni belirgin (${pLvl.txt}). Alerjisi olanlar tedbirli olmalı.`
+          : 'Hava kalitesi temiz ve polen yoğunluğu düşük. Dış mekan aktiviteleri için elverişli.');
+    }
+  }
+
+  window.loadAirQuality = async function (lat, lon, opts = {}) {
+    const scoreEl = document.getElementById('aqiScoreValue');
+    if (!scoreEl || lat == null || lon == null) return;
+    const coordKey = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
+    const now = Date.now();
+    if (aqiCache.key === coordKey && aqiCache.data && (now - aqiCache.ts < 300000)) {
+      applyAirQualityUI(aqiCache.data);
+      return;
+    }
+    if (opts.reuseInFlight && aqiInFlightKey === coordKey) {
+      return;
+    }
+
+    const token = ++aqiReqToken;
+    aqiInFlightKey = coordKey;
     try {
       const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5,pm10,nitrogen_dioxide,ozone,grass_pollen,birch_pollen,olive_pollen,mugwort_pollen,ragweed_pollen&timezone=auto`;
       const resp = await fetch(url);
       const data = await resp.json();
-      const c = data.current || {};
-      const aqi = Math.round(c.european_aqi ?? 0);
-      const meta = getAqiMeta(aqi);
-
-      scoreEl.textContent = aqi;
-      const badgeEl = document.getElementById('aqiStatusBadge');
-      if (badgeEl) {
-        badgeEl.textContent = meta.label;
-        badgeEl.className = `px-3 py-1 rounded-full text-xs font-bold ${meta.cls}`;
-      }
-      const barEl = document.getElementById('aqiProgressBar');
-      if (barEl) {
-        barEl.className = `h-full rounded-full transition-all ${meta.bar}`;
-        barEl.style.width = `${Math.min(100, Math.max(8, aqi))}%`;
-      }
-
-      const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-      setTxt('aqiPm25', c.pm2_5 != null ? `${c.pm2_5.toFixed(1)} µg/m³` : '--');
-      setTxt('aqiPm10', c.pm10 != null ? `${c.pm10.toFixed(1)} µg/m³` : '--');
-      setTxt('aqiNo2', c.nitrogen_dioxide != null ? `${c.nitrogen_dioxide.toFixed(1)} µg/m³` : '--');
-      setTxt('aqiO3', c.ozone != null ? `${Math.round(c.ozone)} µg/m³` : '--');
-
-      const pollens = [
-        { name: 'Çimen', val: c.grass_pollen ?? 0 },
-        { name: 'Zeytin', val: c.olive_pollen ?? 0 },
-        { name: 'Huş', val: c.birch_pollen ?? 0 },
-        { name: 'Pelin', val: c.mugwort_pollen ?? 0 }
-      ];
-      const topPollen = pollens.reduce((a, b) => (b.val > a.val ? b : a), pollens[0]);
-      const pLvl = getPollenLevel(topPollen.val);
-      const pollenGrid = document.getElementById('pollenSummaryGrid');
-      if (pollenGrid) {
-        pollenGrid.innerHTML = pollens.map(p => {
-          const lv = getPollenLevel(p.val);
-          return `
-            <div class="sub-card rounded-xl px-2.5 py-2 flex items-center justify-between text-xs">
-              <span class="text-sec">${p.name}</span>
-              <span class="font-bold ${lv.cls}">${lv.txt}</span>
-            </div>
-          `;
-        }).join('');
-      }
-      const noteEl = document.getElementById('aqiHealthTip');
-      if (noteEl) {
-        noteEl.textContent = aqi > 60
-          ? 'Hava kalitesi hassas gruplar için düşük; uzun süreli yoğun dış mekan egzersizini sınırlayın.'
-          : (topPollen.val >= 20
-            ? `Hava kalitesi iyi ancak ${topPollen.name.toLowerCase()} poleni belirgin (${pLvl.txt}). Alerjisi olanlar tedbirli olmalı.`
-            : 'Hava kalitesi temiz ve polen yoğunluğu düşük. Dış mekan aktiviteleri için elverişli.');
-      }
+      if (token !== aqiReqToken) return;
+      aqiCache = { key: coordKey, ts: Date.now(), data };
+      applyAirQualityUI(data);
     } catch {
-      scoreEl.textContent = '--';
+      if (token === aqiReqToken) scoreEl.textContent = '--';
+    } finally {
+      if (aqiInFlightKey === coordKey) aqiInFlightKey = '';
     }
-  }
+  };
 
   // --- 7. DEPARTURE-TIME ROUTE / TRAVEL WEATHER PLANNER ---
   function populateRouteDatalist() {
@@ -1098,12 +1135,11 @@
     renderWeatherAlertBanner(ctx.cur, ctx.next24, ctx.daily, ctx.todayDailyIdx);
     renderRainCountdown(ctx.next24);
     renderSunMoonCard(ctx.cur, ctx.daily, ctx.todayDailyIdx);
-    loadAirQuality(ctx.lat, ctx.lon);
+    window.loadAirQuality(ctx.lat, ctx.lon, { reuseInFlight: true });
     initOrUpdateRadar(ctx.lat, ctx.lon, ctx.displayLabel);
     populateRouteDatalist();
     window.refreshFavoriteLiveTemps();
     applyProfileLayout();
-    if (window.lucide) lucide.createIcons();
   };
 
   window.initExtraFeatures = function () {
