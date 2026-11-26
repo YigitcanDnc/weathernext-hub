@@ -188,7 +188,7 @@ const DISTRICT_LANDMARKS = {
 
 // Exact-key custom dioramas that always take priority over live API generation/cache
 const CUSTOM_DIORAMAS = {
-  'İstanbul::Kadıköy': './dioramas/kadikoy.webp?v=2'
+  'İstanbul::Kadıköy': './dioramas/kadikoy.webp?v=3'
 };
 
 // Province-level fallback dioramas used only when live API is unavailable
