@@ -1,9 +1,10 @@
-const CACHE_NAME = 'hava-durumu-v16';
+const CACHE_NAME = 'hava-durumu-v17';
 const SHELL_ASSETS = [
   './',
   './index.html',
   './turkey_locations.json',
   './landmarks.js',
+  './features.js',
   './manifest.json',
   './icon.svg'
 ];

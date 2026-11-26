@@ -25,8 +25,13 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Leaflet Maps (Live Precipitation Radar) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- 81 Province & Landmark Photo Catalog -->
   <script src="./landmarks.js"></script>
+  <!-- Modular Weather Experience Features -->
+  <script src="./features.js?v=1"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -87,6 +92,8 @@
 
     .text-sec { color: var(--text-secondary); }
     .text-mut { color: var(--text-muted); }
+    .profile-hidden { display: none !important; }
+    .leaflet-container { z-index: 1; font-family: inherit; }
 
     /* Dynamic Atmospheric Hero Gradients */
     .hero-card {
@@ -278,6 +285,12 @@
             <span class="hidden sm:inline">Konumum</span>
           </button>
 
+          <!-- Personalizable Profile & Card Presets -->
+          <button type="button" id="openProfileBtn" onclick="openProfileDialog()" class="app-input hover:border-sky-500 px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition" title="Kişisel Kartları ve Profili Düzenle">
+            <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-indigo-500"></i>
+            <span id="activeProfileBadge" class="hidden sm:inline">Kartlar</span>
+          </button>
+
           <!-- Refresh -->
           <button type="button" onclick="refreshAll()" class="app-input hover:border-sky-500 p-1.5 rounded-xl transition" title="Verileri Yenile" aria-label="Verileri Yenile">
             <i data-lucide="refresh-cw" class="w-4 h-4 text-sec"></i>
@@ -340,11 +353,88 @@
     <div id="searchResultsList" class="flex-1 overflow-y-auto p-3 space-y-1 max-h-[55vh]"></div>
   </dialog>
 
+  <!-- Profile & Custom Card Visibility Dialog -->
+  <dialog id="profileDialog" closedby="any" aria-labelledby="profileDialogTitle" class="card rounded-3xl p-0 w-[min(94vw,580px)] max-h-[86vh] m-auto border border-slate-500/20 shadow-2xl overflow-hidden">
+    <div class="p-4 sm:p-5 border-b border-slate-500/15 flex items-center justify-between gap-3">
+      <h2 id="profileDialogTitle" class="text-sm sm:text-base font-bold flex items-center gap-2">
+        <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-500"></i>
+        Kişisel Profil & Kart Ayarları
+      </h2>
+      <form method="dialog">
+        <button type="submit" aria-label="Kapat" class="p-1.5 rounded-lg hover:bg-slate-500/15 text-sec transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+
+    <div class="p-4 sm:p-5 space-y-4 overflow-y-auto max-h-[70vh]">
+      <div class="space-y-1.5">
+        <label for="profileNameInput" class="text-xs font-bold text-sec">Profil Adı (Opsiyonel)</label>
+        <div class="flex gap-2">
+          <input type="text" id="profileNameInput" maxlength="24" placeholder="Örn: Yiğitcan, Dış Saha, Hafta Sonu..." class="app-input flex-1 text-xs rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+          <button type="button" onclick="saveProfileDisplayName()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-600 text-white transition">Kaydet</button>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <div class="text-xs font-bold text-sec">Hazır Kullanıcı Profilleri</div>
+        <div id="profilePresetsGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+      </div>
+
+      <div class="space-y-2">
+        <div class="text-xs font-bold text-sec">Görünür Kartlar</div>
+        <div id="profileCardToggles" class="space-y-2"></div>
+      </div>
+
+      <div class="sub-card rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span class="text-sec">Başka cihaza taşımak için ayar kodunu paylaşın:</span>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="exportProfileCode()" class="app-input hover:border-sky-500 px-2.5 py-1.5 rounded-lg font-semibold transition">Kodu Kopyala</button>
+          <button type="button" onclick="importProfileCode()" class="app-input hover:border-sky-500 px-2.5 py-1.5 rounded-lg font-semibold transition">Kodu Yapıştır</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Shareable 3D Weather Story Card Dialog -->
+  <dialog id="shareCardDialog" closedby="any" aria-labelledby="shareDialogTitle" class="card rounded-3xl p-0 w-[min(94vw,460px)] max-h-[90vh] m-auto border border-slate-500/20 shadow-2xl overflow-hidden">
+    <div class="p-4 border-b border-slate-500/15 flex items-center justify-between gap-3">
+      <h2 id="shareDialogTitle" class="text-sm sm:text-base font-bold flex items-center gap-2">
+        <i data-lucide="share-2" class="w-4 h-4 text-sky-500"></i>
+        Paylaşılabilir 3D Hava Kartı
+      </h2>
+      <form method="dialog">
+        <button type="submit" aria-label="Kapat" class="p-1.5 rounded-lg hover:bg-slate-500/15 text-sec transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+
+    <div class="p-4 space-y-3 overflow-y-auto max-h-[76vh]">
+      <div class="flex justify-center">
+        <canvas id="shareCardCanvas" class="w-full max-w-[320px] rounded-2xl shadow-lg border border-slate-500/15"></canvas>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button type="button" onclick="downloadShareCard()" class="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-600 text-white flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="download" class="w-4 h-4"></i> PNG İndir
+        </button>
+        <button type="button" onclick="nativeShareCard()" class="app-input hover:border-sky-500 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="send" class="w-4 h-4 text-sky-500"></i> Paylaş
+        </button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Toast Notice -->
   <div id="toastNotice" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-slate-900 text-white text-xs font-medium shadow-xl border border-white/10"></div>
 
   <!-- Main Content -->
   <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
+
+    <!-- 0. AKILLI HAVA UYARI BANDI -->
+    <section id="weatherAlertBanner" class="hidden space-y-2">
+      <div id="weatherAlertList" class="space-y-2"></div>
+    </section>
 
     <!-- 1. TRUE-TRANSPARENT FLOATING DIORAMA HERO CARD: BALANCED 2-COL DESKTOP / VERTICAL MOBILE -->
     <section id="heroCard" data-atmosphere="sunny" class="hero-card hero-ink-light rounded-3xl p-5 sm:p-7 shadow-xl">
@@ -360,6 +450,10 @@
             <button type="button" id="favToggleBtn" onclick="toggleFavoriteCurrent()" class="hero-pill px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1" title="Favorilere Ekle / Çıkar">
               <i id="favToggleIcon" data-lucide="star" class="w-3.5 h-3.5"></i>
               <span id="favToggleText">Favorile</span>
+            </button>
+            <button type="button" id="shareCardBtn" onclick="openShareCardDialog()" class="hero-pill px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1" title="3D Hava Kartını Paylaş">
+              <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+              <span>Paylaş</span>
             </button>
           </div>
 
@@ -407,6 +501,23 @@
       </div>
     </section>
 
+    <!-- 1A. YAĞIŞ GERİ SAYIMI & PENCERESİ -->
+    <section data-card-id="rainCountdown" class="card rounded-3xl p-4 sm:p-5 space-y-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-start gap-2.5 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-sky-500/15 text-sky-500 flex items-center justify-center shrink-0">
+            <i data-lucide="umbrella" class="w-4.5 h-4.5"></i>
+          </div>
+          <div class="min-w-0">
+            <h2 id="rainCountdownHeadline" class="text-sm sm:text-base font-bold leading-snug">Yağış penceresi analiz ediliyor...</h2>
+            <p id="rainCountdownSub" class="text-xs text-sec mt-0.5">--</p>
+          </div>
+        </div>
+        <span id="rainCountdownBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-slate-500/15 text-sec shrink-0">--</span>
+      </div>
+      <div id="rainCountdownBars" class="flex items-end gap-1.5 pt-1"></div>
+    </section>
+
     <!-- 1B. GOOGLE WEATHERNEXT AI — ÇOKLU SENARYO (P10 - P90) KARTI -->
     <section id="weathernextCard" class="hidden card rounded-3xl p-5 sm:p-6 space-y-4 border-l-4 border-l-indigo-500">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -425,7 +536,7 @@
     </section>
 
     <!-- 2. GÜN İÇİNDE YAĞIŞ BEKLENEN SAATLER -->
-    <section class="card rounded-3xl p-5 sm:p-6 space-y-4">
+    <section data-card-id="rainTimeline" class="card rounded-3xl p-5 sm:p-6 space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
@@ -447,7 +558,7 @@
     </section>
 
     <!-- 3. 48 SAATLİK YATAY AKIŞ -->
-    <section class="card rounded-3xl p-5 sm:p-6 space-y-3">
+    <section data-card-id="hourly48" class="card rounded-3xl p-5 sm:p-6 space-y-3">
       <div class="flex items-center justify-between">
         <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
           <i data-lucide="clock" class="w-5 h-5 text-sky-500"></i>
@@ -458,8 +569,80 @@
       <div id="hourlyStrip" class="hourly-strip flex gap-2.5 overflow-x-auto pb-2"></div>
     </section>
 
+    <!-- 3B. HAVA KALİTESİ (AQI) & POLEN + GÜN IŞIĞI, ALTIN SAAT & AY EVRESİ -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Hava Kalitesi & Polen -->
+      <div data-card-id="airQuality" class="card rounded-3xl p-5 flex flex-col justify-between gap-3.5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm sm:text-base font-bold flex items-center gap-2">
+            <i data-lucide="leaf" class="w-4.5 h-4.5 text-emerald-500"></i>
+            Hava Kalitesi (AQI) & Polen
+          </h3>
+          <span id="aqiStatusBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">--</span>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-baseline justify-between">
+            <div>
+              <span id="aqiScoreValue" class="text-3xl font-extrabold">--</span>
+              <span class="text-xs text-sec ml-1">Avrupa AQI</span>
+            </div>
+            <div class="text-[11px] text-sec">PM2.5: <strong id="aqiPm25">--</strong> • PM10: <strong id="aqiPm10">--</strong></div>
+          </div>
+          <div class="w-full h-2 rounded-full bg-slate-500/15 overflow-hidden">
+            <div id="aqiProgressBar" class="h-full rounded-full bg-emerald-500 transition-all" style="width: 20%"></div>
+          </div>
+          <div class="flex items-center gap-4 text-[11px] text-sec">
+            <span>NO₂: <strong id="aqiNo2">--</strong></span>
+            <span>O₃: <strong id="aqiO3">--</strong></span>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-sec">Polen Seviyesi</div>
+          <div id="pollenSummaryGrid" class="grid grid-cols-2 gap-2"></div>
+        </div>
+        <p id="aqiHealthTip" class="text-xs text-sec leading-relaxed">Hava kalitesi ve polen yoğunluğu kontrol ediliyor...</p>
+      </div>
+
+      <!-- Gün Işığı Yayı, Altın Saat & Ay Evresi -->
+      <div data-card-id="sunMoon" class="card rounded-3xl p-5 flex flex-col justify-between gap-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h3 class="text-sm sm:text-base font-bold flex items-center gap-2">
+            <i data-lucide="sun" class="w-4.5 h-4.5 text-amber-500"></i>
+            Gün Işığı, Altın Saat & Ay Evresi
+          </h3>
+          <span id="sunDayLength" class="text-xs font-semibold text-sec">--</span>
+        </div>
+
+        <div id="sunArcSvgContainer" class="py-1"></div>
+
+        <div class="grid grid-cols-2 gap-2.5 text-xs">
+          <div class="sub-card rounded-2xl p-3 space-y-0.5">
+            <div class="text-[11px] font-bold text-amber-600 dark:text-amber-400">Sabah Altın Saat</div>
+            <div id="goldenHourAm" class="font-bold">--:-- – --:--</div>
+          </div>
+          <div class="sub-card rounded-2xl p-3 space-y-0.5">
+            <div class="text-[11px] font-bold text-orange-600 dark:text-orange-400">Akşam Altın Saat</div>
+            <div id="goldenHourPm" class="font-bold">--:-- – --:--</div>
+          </div>
+        </div>
+
+        <div class="sub-card rounded-2xl px-3.5 py-2.5 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div id="moonPhaseSvg"></div>
+            <div>
+              <div id="moonPhaseName" class="text-xs font-bold">--</div>
+              <div id="moonIllumination" class="text-[11px] text-sec">Aydınlanma: %--</div>
+            </div>
+          </div>
+          <span class="text-[11px] text-sec font-medium">Astronomi</span>
+        </div>
+      </div>
+    </section>
+
     <!-- 4. GÜNLÜK HAYAT KARTLARI (DÜNE GÖRE FARK, İŞE GİDİŞ-GELİŞ, BASINÇ & KONFOR) -->
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <section data-card-id="dailyInsights" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <!-- Düne Göre Karşılaştırma -->
       <div class="card rounded-3xl p-5 flex flex-col justify-between gap-3">
         <div class="flex items-center justify-between">
@@ -539,7 +722,7 @@
     </section>
 
     <!-- 5. 7 GÜNLÜK / 15 GÜNLÜK TAHMİN + BUGÜNÜN ZAMAN DİLİMLERİ -->
-    <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+    <section data-card-id="multiDay" class="grid grid-cols-1 lg:grid-cols-12 gap-5">
       <div class="card rounded-3xl p-5 sm:p-6 lg:col-span-7 space-y-4">
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div>
@@ -566,8 +749,70 @@
       </div>
     </section>
 
+    <!-- 5B. CANLI YAĞIŞ RADARI -->
+    <section data-card-id="radar" class="card rounded-3xl p-5 sm:p-6 space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
+            <i data-lucide="radar" class="w-5 h-5 text-sky-500"></i>
+            Canlı Yağış Radarı
+          </h2>
+          <p class="text-xs text-sec mt-0.5">Yaklaşan yağış ve bulut hareketleri (RainViewer canlı & yakın tahmin)</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="radarPlayBtn" onclick="toggleRadarPlay()" class="app-input hover:border-sky-500 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> Oynat
+          </button>
+          <span id="radarFrameTime" class="px-2.5 py-1 rounded-xl sub-card text-xs font-semibold">Yükleniyor...</span>
+        </div>
+      </div>
+
+      <div id="radarMapContainer" class="w-full h-[300px] sm:h-[360px] rounded-2xl overflow-hidden border border-slate-500/20"></div>
+      <input type="range" id="radarSlider" min="0" max="10" value="0" oninput="seekRadarFrame(this.value)" class="w-full accent-sky-500 cursor-pointer">
+    </section>
+
+    <!-- 5C. GÜZERGAH / SEYAHAT HAVA DURUMU -->
+    <section data-card-id="travelRoute" class="card rounded-3xl p-5 sm:p-6 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
+            <i data-lucide="route" class="w-5 h-5 text-indigo-500"></i>
+            Güzergah & Seyahat Hava Durumu
+          </h2>
+          <p class="text-xs sm:text-sm text-sec mt-0.5">Çıkış saatinizi seçin; yol üzerindeki duraklardan geçiş saatinize göre hava durumunu görün.</p>
+        </div>
+      </div>
+
+      <datalist id="routeLocationsDatalist"></datalist>
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+        <div class="md:col-span-4 space-y-1">
+          <div class="flex items-center justify-between">
+            <label for="routeFromInput" class="text-[11px] font-bold text-sec">Nereden (Kalkış)</label>
+            <button type="button" onclick="useCurrentLocationForRoute()" class="text-[11px] font-semibold text-sky-500 hover:underline">Mevcut konumu al</button>
+          </div>
+          <input type="text" id="routeFromInput" list="routeLocationsDatalist" placeholder="Örn: Kadıköy (İstanbul)" class="app-input w-full text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+        </div>
+        <div class="md:col-span-4 space-y-1">
+          <label for="routeToInput" class="text-[11px] font-bold text-sec">Nereye (Varış)</label>
+          <input type="text" id="routeToInput" list="routeLocationsDatalist" placeholder="Örn: Çankaya (Ankara) veya Bodrum" class="app-input w-full text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+        </div>
+        <div class="md:col-span-2 space-y-1">
+          <label for="routeDepartureTime" class="text-[11px] font-bold text-sec">Çıkış Zamanı</label>
+          <input type="datetime-local" id="routeDepartureTime" class="app-input w-full text-xs rounded-xl px-2.5 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+        </div>
+        <div class="md:col-span-2">
+          <button type="button" onclick="calculateTravelRouteWeather()" class="w-full px-4 py-2.5 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-600 text-white transition shadow-sm flex items-center justify-center gap-1.5">
+            <i data-lucide="navigation" class="w-3.5 h-3.5"></i> Güzergahı Gör
+          </button>
+        </div>
+      </div>
+
+      <div id="routeSummaryBar" class="hidden sub-card rounded-2xl px-4 py-2.5 text-xs"></div>
+      <div id="routeResultsContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5"></div>
+    </section>
+
     <!-- 6. İLÇE İLÇE ANLIK HAVA DURUMU -->
-    <section class="card rounded-3xl p-5 sm:p-6 space-y-4">
+    <section data-card-id="districts" class="card rounded-3xl p-5 sm:p-6 space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
@@ -883,12 +1128,14 @@
       }
 
       if (rainChart) updateChartColors();
+      if (typeof syncRadarTheme === 'function') syncRadarTheme();
     }
 
     window.addEventListener('storage', (e) => {
       if (e.key === 'color-scheme') {
         document.querySelector('meta[name="color-scheme"]').content = e.newValue ?? 'light dark';
         if (rainChart) updateChartColors();
+        if (typeof syncRadarTheme === 'function') syncRadarTheme();
       }
     });
 
@@ -1143,6 +1390,7 @@
         const isActive = f.key === activeKey;
         const btn = document.createElement('button');
         btn.type = 'button';
+        btn.setAttribute('data-fav-key', f.key);
         btn.className = `shrink-0 px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 transition border ${
           isActive
             ? 'bg-sky-500 text-white border-sky-500'
@@ -1151,10 +1399,12 @@
         btn.onclick = () => selectLocation(f.province, f.district);
         btn.innerHTML = `
           <span>${f.label}</span>
+          <span class="fav-live-temp hidden items-center gap-1 font-bold opacity-90"></span>
           <span onclick="removeFavorite('${f.key.replace(/'/g, "\\'")}', event)" class="opacity-70 hover:opacity-100 ml-0.5 font-bold" title="Kaldır">×</span>
         `;
         list.appendChild(btn);
       });
+      if (typeof refreshFavoriteLiveTemps === 'function') refreshFavoriteLiveTemps();
     }
 
     function updateFavoriteButtonUI() {
@@ -1235,6 +1485,7 @@
 
       selectLocation(startProv, startDist);
       renderFavoritesBar();
+      if (typeof initExtraFeatures === 'function') initExtraFeatures();
     }
 
     function selectLocation(provinceName, districtName = '__MERKEZ__') {
@@ -1387,7 +1638,7 @@
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,dew_point_2m,pressure_msl,visibility,precipitation_probability,precipitation,rain,snowfall,wind_speed_10m,wind_gusts_10m,uv_index,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_gusts_10m,pressure_msl,weather_code&timezone=auto&past_days=1&forecast_days=16`;
         const resp = await fetch(url);
         const data = await resp.json();
-        renderForecast(data, displayLabel);
+        renderForecast(data, displayLabel, lat, lon);
       } catch (e) {
         console.error('Forecast error:', e);
         showToast('Hava durumu verisi alınamadı, lütfen bağlantınızı kontrol edin.');
@@ -1425,7 +1676,7 @@
       renderMultiDayForecast();
     }
 
-    function renderForecast(data, displayLabel) {
+    function renderForecast(data, displayLabel, lat, lon) {
       const cur = data.current || {};
       const hourly = data.hourly || {};
       const daily = data.daily || {};
@@ -1504,6 +1755,21 @@
       latestDailyPayload = daily;
       latestTodayDailyIdx = todayDailyIdx;
       renderMultiDayForecast();
+
+      if (typeof onWeatherDataRendered === 'function') {
+        const effLat = lat ?? (currentDistrict ? currentDistrict.lat : currentProvince?.lat);
+        const effLon = lon ?? (currentDistrict ? currentDistrict.lon : currentProvince?.lon);
+        onWeatherDataRendered({
+          lat: effLat,
+          lon: effLon,
+          displayLabel,
+          cur,
+          hourly,
+          daily,
+          next24,
+          todayDailyIdx
+        });
+      }
 
       lucide.createIcons();
     }
