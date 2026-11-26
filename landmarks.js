@@ -187,7 +187,7 @@ const DISTRICT_LANDMARKS = {
 };
 
 const PREGENERATED_DIORAMAS = {
-  'İstanbul::Kadıköy': './dioramas/kadikoy.webp?v=1',
+  'İstanbul::Kadıköy': './dioramas/kadikoy.webp?v=2',
   'İzmir': './dioramas/izmir.webp?v=2',
   'İstanbul': './dioramas/istanbul.webp?v=2',
   'Niğde': './dioramas/nigde.webp?v=2'
